@@ -22,9 +22,15 @@
 - 项目名称：本地文档管理系统。
 - 参考项目：paperless-ngx。
 - 项目类型：Java Web 课程实训项目。
+- 代码仓库：`https://github.com/Heria-Cris/Paperless-ngx-Project.git`。
 - 开发策略：先落地基础可访问界面，再逐步完善真实业务功能。
 - 主要技术：Spring Boot 3、Spring MVC、Thymeleaf、Session、HandlerInterceptor、MyBatis-Plus、MySQL、本地文件系统。
 - 核心目标：实现文档上传、分类、标签、查询、下载、权限控制、统计和基础日志。
+
+凭据说明：
+
+- GitHub Personal Access Token 属于敏感凭据，不记录在本文件或任何项目文件中。
+- 后续提交代码时可以本地提交；推送到 GitHub 建议使用 Git Credential Manager、GitHub Desktop、IDE 登录或用户手动输入 token。
 
 ## 开发策略说明
 
@@ -151,6 +157,74 @@
 - 阶段 1 增加登录页、文档列表页、上传页、分类页、标签页等基础界面。
 - 抽取公共布局模板，减少页面重复代码。
 - 使用模拟数据完善首页统计和最近文档列表。
+
+### 阶段 1：基础可访问界面
+
+日期：2026-06-26
+
+阶段目标：
+
+- 参考 Paperless-ngx 官方截图，先完成基础可访问、可点击、风格统一的后台界面。
+- 页面先使用模拟数据，不接数据库和真实业务逻辑。
+- 为后续 Session 登录、文档 CRUD、上传下载、分类标签管理预留页面入口。
+
+参考资料：
+
+- Paperless-ngx 官方截图：https://docs.paperless-ngx.com/#screenshots
+- 用户提供的 Dashboard、Documents 网格视图、Documents 列表视图截图。
+
+完成内容：
+
+- 创建登录页 `/login`。
+- 将首页 `/dashboard` 改造为 Paperless-ngx 风格仪表盘。
+- 创建文档列表页 `/documents`，包含筛选工具条、视图按钮和模拟数据表格。
+- 创建上传页 `/documents/upload`，包含拖拽上传区域和文档元数据表单。
+- 创建文档详情页 `/documents/{id}` 和编辑页 `/documents/{id}/edit`。
+- 创建分类管理页 `/categories`。
+- 创建标签管理页 `/tags`。
+- 创建用户管理页 `/users`。
+- 创建日志页 `/logs`。
+- 重写 `app.css`，实现深绿色顶栏、浅色侧边栏、标签色块、表格、面板和表单样式。
+
+技术与方案：
+
+- 阶段 1 使用单个 `app.html` 模板，通过 `activePage` 控制不同页面区域展示。
+- Controller 中使用 Java record 和 `List.of(...)` 提供模拟数据。
+- 登录页单独使用 `login.html`，便于阶段 2 接入真实登录逻辑。
+- 页面路由先完整落地，按钮和表单先作为静态交互入口。
+
+方案理由：
+
+- 单模板方案能快速统一页面风格，减少早期重复模板维护成本。
+- 模拟数据让页面在未接数据库前也能完整展示系统形态。
+- 先落地路由和页面入口，便于团队成员后续按模块替换为真实功能。
+
+遇到的问题：
+
+- 需要在课程项目复杂度内尽量贴近 Paperless-ngx 的界面，但不能照搬其完整前端架构。
+
+解决办法：
+
+- 保留 Paperless-ngx 的视觉特征：深绿色顶栏、左侧导航、筛选工具条、密集表格、彩色标签。
+- 不引入 Angular 或完整前后端分离，只用 Thymeleaf 和 CSS 实现阶段 1 界面。
+
+答辩可讲点：
+
+- 项目界面参考成熟开源系统 Paperless-ngx，但技术实现进行了课程化简化。
+- 阶段 1 已经形成完整系统雏形，能演示主要模块入口。
+- 页面和路由先行，使后续功能开发有明确落点，也方便团队分工。
+
+后续可优化：
+
+- 抽取 Thymeleaf 公共布局片段。
+- 为文档列表增加卡片视图切换。
+- 接入真实登录后根据用户角色控制菜单显示。
+- 接入数据库后将模拟数据替换为真实查询结果。
+
+验证结果：
+
+- 执行 `mvn package` 构建成功。
+- 临时启动 Jar 后，以下路由均返回 HTTP 200：`/login`、`/dashboard`、`/documents`、`/documents/upload`、`/documents/0`、`/documents/0/edit`、`/categories`、`/tags`、`/users`、`/logs`。
 
 ## 功能开发记录模板
 

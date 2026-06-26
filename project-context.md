@@ -8,6 +8,12 @@
 
 系统用于管理本地电子文档，例如课程资料、合同、证书扫描件、发票、报告等，解决传统文件夹管理中分类混乱、检索困难、权限缺失、文件重复、操作不可追踪等问题。
 
+## 代码仓库
+
+- GitHub 仓库：[Paperless-ngx-Project](https://github.com/Heria-Cris/Paperless-ngx-Project)
+- 远程地址：`https://github.com/Heria-Cris/Paperless-ngx-Project.git`
+- 注意：Personal Access Token 属于敏感凭据，不应写入项目文档、Git 配置、提交记录或命令历史。
+
 ## 核心目标
 
 - 实现典型 Java Web CRUD 项目开发闭环。
@@ -472,6 +478,7 @@ MVP 必须包含：
 ## 开发偏好
 
 - 优先完成 MVP 闭环，再做进阶能力。
+- 阶段 1 界面风格参考 Paperless-ngx 官方截图：[Screenshots](https://docs.paperless-ngx.com/#screenshots)。
 - 避免引入超过课程实训复杂度的框架。
 - 业务逻辑放在 Service 层，Controller 保持薄。
 - 所有涉及文档所有权的操作都要做权限判断。

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle} + ' - 本地文档管理系统'">登录 - 本地文档管理系统</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body class="login-page">
+<main class="login-panel">
+    <div class="login-brand">
+        <span class="leaf-mark">◒</span>
+        <strong>Paperless-ngx</strong>
+        <small>本地文档管理系统</small>
+    </div>
+    <form class="login-form" action="/dashboard" method="get">
+        <label>
+            用户名
+            <input type="text" name="username" placeholder="admin">
+        </label>
+        <label>
+            密码
+            <input type="password" name="password" placeholder="password">
+        </label>
+        <button type="submit">登录</button>
+    </form>
+    <p class="login-hint">阶段 1 演示页面：当前登录表单仅用于跳转，真实 Session 登录将在阶段 2 接入。</p>
+</main>
+</body>
+</html>

@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle} + ' - Paperless-ngx'">Paperless-ngx</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div class="paperless-shell">
+    <header class="top-nav">
+        <a class="product" href="/dashboard">
+            <span class="leaf-mark">◒</span>
+            <strong>Paperless-ngx</strong>
+        </a>
+        <form class="global-search" action="/documents" method="get">
+            <span>⌕</span>
+            <input type="search" name="keyword" placeholder="Search documents">
+        </form>
+        <a class="avatar" href="/login" title="登录">◉</a>
+    </header>
+
+    <aside class="side-nav">
+        <nav>
+            <a th:classappend="${activePage == 'dashboard'} ? ' active'" href="/dashboard">⌂ Dashboard</a>
+            <a th:classappend="${#strings.startsWith(activePage, 'document') || activePage == 'upload'} ? ' active'" href="/documents">▯ Documents</a>
+        </nav>
+        <h3>Saved views</h3>
+        <nav>
+            <a href="/documents">▽ Inbox</a>
+            <a href="/documents">▽ Recently Added</a>
+        </nav>
+        <h3>Manage</h3>
+        <nav>
+            <a href="/documents">♙ Correspondents</a>
+            <a th:classappend="${activePage == 'tags'} ? ' active'" href="/tags">◇ Tags</a>
+            <a th:classappend="${activePage == 'categories'} ? ' active'" href="/categories"># Document Types</a>
+            <a href="/documents">▱ Storage Paths</a>
+            <a href="/documents">☷ Custom Fields</a>
+            <a href="/documents/upload">▤ Templates</a>
+            <a href="/documents/upload">✉ Mail</a>
+        </nav>
+        <h3>Administration</h3>
+        <nav>
+            <a href="/dashboard">⚙ Settings</a>
+            <a th:classappend="${activePage == 'users'} ? ' active'" href="/users">♧ Users & Groups</a>
+            <a href="/dashboard">☰ File Tasks <span class="count-badge">16</span></a>
+            <a th:classappend="${activePage == 'logs'} ? ' active'" href="/logs">☰ Logs</a>
+        </nav>
+        <footer>
+            <a href="https://docs.paperless-ngx.com/#screenshots">? Documentation</a>
+            <span>Paperless-ngx v2.0.0 style reference</span>
+        </footer>
+    </aside>
+
+    <main class="content">
+        <section th:if="${activePage == 'dashboard'}">
+            <div class="page-title-row">
+                <h1>Dashboard</h1>
+                <p>Hello User2, welcome to Paperless-ngx</p>
+                <div class="wordmark"><span class="leaf-mark">◒</span> Paperless<small>ngx</small></div>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="stack">
+                    <section class="panel">
+                        <div class="panel-title">
+                            <h2>Inbox</h2>
+                            <a href="/documents">Show all</a>
+                        </div>
+                        <table class="data-table">
+                            <thead>
+                            <tr>
+                                <th>Created</th>
+                                <th>Title</th>
+                                <th>Tags</th>
+                                <th>Correspondent</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="doc, stat : ${documents}" th:if="${stat.index < 5}">
+                                <td th:text="${doc.created}">Aug 9, 2023</td>
+                                <td th:text="${doc.title}">Title</td>
+                                <td><span th:each="tag : ${doc.tags}" class="tag" th:text="${tag}">Inbox</span></td>
+                                <td th:text="${doc.correspondent}">Correspondent</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-title">
+                            <h2>Recently Added</h2>
+                            <a href="/documents">Show all</a>
+                        </div>
+                        <table class="data-table">
+                            <thead>
+                            <tr>
+                                <th>Created</th>
+                                <th>Title</th>
+                                <th>Tags</th>
+                                <th>Correspondent</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="doc : ${documents}">
+                                <td th:text="${doc.created}">Aug 9, 2023</td>
+                                <td th:text="${doc.title}">Title</td>
+                                <td><span th:each="tag : ${doc.tags}" class="tag" th:text="${tag}">Inbox</span></td>
+                                <td th:text="${doc.correspondent}">Correspondent</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </section>
+                </div>
+
+                <aside class="stack">
+                    <section class="panel compact-panel">
+                        <div class="panel-title"><h2>Statistics</h2></div>
+                        <ul class="stat-list">
+                            <li><span>Documents in inbox:</span><strong th:text="${inboxTotal}">5</strong></li>
+                            <li><span>Total documents:</span><strong th:text="${documentTotal}">64</strong></li>
+                            <li><span>Total characters:</span><strong>2,514,649</strong></li>
+                            <li><span>Tags:</span><strong th:text="${tagTotal}">28</strong></li>
+                            <li><span>Document Types:</span><strong th:text="${categoryTotal}">5</strong></li>
+                        </ul>
+                    </section>
+                    <section class="panel upload-card">
+                        <div class="panel-title"><h2>Upload new documents</h2></div>
+                        <p>Drop documents anywhere or</p>
+                        <a class="outline-button" href="/documents/upload">Browse files</a>
+                    </section>
+                </aside>
+            </div>
+        </section>
+
+        <section th:if="${activePage == 'documents'}">
+            <div class="page-title-row">
+                <h1>Documents</h1>
+                <div class="view-actions">
+                    <button>Select ▾</button>
+                    <button>☷</button>
+                    <button>▦</button>
+                    <button>Sort ▾</button>
+                    <button>Views ▾</button>
+                </div>
+            </div>
+            <div class="filter-bar">
+                <button>Title & content ▾</button>
+                <input type="search">
+                <button>◆ Tags ▾</button>
+                <button>♙ Correspondent ▾</button>
+                <button>▣ Document type ▾</button>
+                <button>▰ Storage path ▾</button>
+                <button>Created ▾</button>
+                <button>Added ▾</button>
+                <button class="muted-button">× Reset filters</button>
+            </div>
+            <p class="result-count">64 documents</p>
+            <section class="panel table-panel">
+                <table class="data-table documents-table">
+                    <thead>
+                    <tr>
+                        <th></th>
+                        <th>ASN</th>
+                        <th>Correspondent</th>
+                        <th>Title</th>
+                        <th>Owner</th>
+                        <th>Notes</th>
+                        <th>Document type</th>
+                        <th>Created ↑</th>
+                        <th>Added</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="doc, stat : ${documents}">
+                        <td><input type="checkbox"></td>
+                        <td th:text="${doc.asn == 0 ? '' : doc.asn}">1999</td>
+                        <td th:text="${doc.correspondent}">Correspondent</td>
+                        <td>
+                            <a th:href="@{/documents/{id}(id=${stat.index})}" th:text="${doc.title}">Title</a>
+                            <span th:each="tag : ${doc.tags}" class="tag" th:text="${tag}">Inbox</span>
+                        </td>
+                        <td th:text="${doc.owner}">User2</td>
+                        <td><span class="note-pill">▤ 1</span></td>
+                        <td th:text="${doc.documentType}">Invoice Test</td>
+                        <td th:text="${doc.created}">Aug 9, 2023</td>
+                        <td th:text="${doc.added}">Aug 9, 2023</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </section>
+        </section>
+
+        <section th:if="${activePage == 'upload'}">
+            <div class="page-title-row"><h1>Upload new documents</h1></div>
+            <section class="panel form-panel">
+                <div class="drop-zone">
+                    <strong>Drop documents anywhere</strong>
+                    <span>PDF, Word, Excel, Image, TXT</span>
+                    <button>Browse files</button>
+                </div>
+                <div class="form-grid">
+                    <label>Document title<input placeholder="输入文档标题"></label>
+                    <label>Document type<select><option>Invoice Test</option><option>课程资料</option></select></label>
+                    <label>Tags<input placeholder="重要, 待处理"></label>
+                    <label>Description<textarea placeholder="文档说明"></textarea></label>
+                </div>
+            </section>
+        </section>
+
+        <section th:if="${activePage == 'document-detail' || activePage == 'document-edit'}">
+            <div class="page-title-row">
+                <h1 th:text="${activePage == 'document-edit' ? 'Edit document' : 'Document detail'}">Document detail</h1>
+                <div class="view-actions">
+                    <a class="outline-button" href="/documents">Back</a>
+                    <a class="outline-button" th:href="@{/documents/0/edit}">Edit</a>
+                </div>
+            </div>
+            <section class="detail-layout">
+                <div class="document-preview">
+                    <span th:text="${selectedDocument.fileType}">PDF</span>
+                    <strong th:text="${selectedDocument.title}">Document</strong>
+                    <p>Preview placeholder</p>
+                </div>
+                <div class="panel form-panel">
+                    <label>Title<input th:value="${selectedDocument.title}"></label>
+                    <label>Correspondent<input th:value="${selectedDocument.correspondent}"></label>
+                    <label>Document type<input th:value="${selectedDocument.documentType}"></label>
+                    <label>Tags<input th:value="${#strings.listJoin(selectedDocument.tags, ', ')}"></label>
+                    <label>Description<textarea>阶段 1 静态详情与编辑表单。</textarea></label>
+                    <button class="primary-button">Save</button>
+                </div>
+            </section>
+        </section>
+
+        <section th:if="${activePage == 'categories' || activePage == 'tags'}">
+            <div class="page-title-row">
+                <h1 th:text="${activePage == 'categories' ? 'Document Types' : 'Tags'}">Manage</h1>
+                <button class="primary-button">Create</button>
+            </div>
+            <section class="panel table-panel">
+                <table class="data-table">
+                    <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Description / Color</th>
+                        <th>Documents</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="item : ${activePage == 'categories' ? categories : tags}">
+                        <td th:text="${item.name}">Name</td>
+                        <td><span class="tag" th:text="${item.description}">Description</span></td>
+                        <td th:text="${item.count}">0</td>
+                        <td><button>✎</button><button>⌫</button></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </section>
+        </section>
+
+        <section th:if="${activePage == 'users' || activePage == 'logs'}">
+            <div class="page-title-row">
+                <h1 th:text="${activePage == 'users' ? 'Users & Groups' : 'Logs'}">Admin</h1>
+                <button class="primary-button" th:text="${activePage == 'users' ? 'Create user' : 'Export'}">Action</button>
+            </div>
+            <section class="panel table-panel">
+                <table class="data-table">
+                    <thead>
+                    <tr>
+                        <th th:text="${activePage == 'users' ? 'Username' : 'Time'}">Username</th>
+                        <th th:text="${activePage == 'users' ? 'Role' : 'User'}">Role</th>
+                        <th th:text="${activePage == 'users' ? 'Status' : 'Action'}">Status</th>
+                        <th th:text="${activePage == 'users' ? 'Last login' : 'Result'}">Last login</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td th:text="${activePage == 'users' ? 'admin' : '2026-06-26 15:20'}">admin</td>
+                        <td th:text="${activePage == 'users' ? '管理员' : 'admin'}">管理员</td>
+                        <td th:text="${activePage == 'users' ? '启用' : '登录'}">启用</td>
+                        <td>成功</td>
+                    </tr>
+                    <tr>
+                        <td th:text="${activePage == 'users' ? 'user2' : '2026-06-26 15:28'}">user2</td>
+                        <td th:text="${activePage == 'users' ? '普通用户' : 'user2'}">普通用户</td>
+                        <td th:text="${activePage == 'users' ? '启用' : '上传文档'}">启用</td>
+                        <td>成功</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </section>
+        </section>
+    </main>
+</div>
+</body>
+</html>
