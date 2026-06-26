@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle} + ' - 本地文档管理系统'">项目首页 - 本地文档管理系统</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <span class="brand-mark">P</span>
+            <div>
+                <strong>Paperless Local</strong>
+                <small>本地文档管理系统</small>
+            </div>
+        </div>
+        <nav class="nav">
+            <a class="active" href="/dashboard">首页</a>
+            <a href="#">文档管理</a>
+            <a href="#">分类管理</a>
+            <a href="#">标签管理</a>
+            <a href="#">操作日志</a>
+            <a href="#">系统设置</a>
+        </nav>
+    </aside>
+
+    <main class="main">
+        <header class="topbar">
+            <div>
+                <h1>项目首页</h1>
+                <p>阶段 0 已完成：Spring Boot 工程骨架和基础访问入口。</p>
+            </div>
+            <div class="user-pill">未登录演示状态</div>
+        </header>
+
+        <section class="stats-grid" aria-label="基础统计">
+            <article class="stat-card">
+                <span>文档总数</span>
+                <strong th:text="${documentTotal}">0</strong>
+            </article>
+            <article class="stat-card">
+                <span>今日上传</span>
+                <strong th:text="${todayUploads}">0</strong>
+            </article>
+            <article class="stat-card">
+                <span>分类数量</span>
+                <strong th:text="${categoryTotal}">0</strong>
+            </article>
+            <article class="stat-card">
+                <span>标签数量</span>
+                <strong th:text="${tagTotal}">0</strong>
+            </article>
+        </section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <h2>当前开发阶段</h2>
+                <span>Stage 0</span>
+            </div>
+            <div class="timeline">
+                <div class="timeline-item done">
+                    <strong>工程骨架</strong>
+                    <p>Maven、Spring Boot、Thymeleaf、基础配置已创建。</p>
+                </div>
+                <div class="timeline-item">
+                    <strong>下一步</strong>
+                    <p>进入阶段 1：完成登录页、后台布局、文档列表等基础可访问界面。</p>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

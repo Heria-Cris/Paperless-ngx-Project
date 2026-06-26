@@ -1,0 +1,20 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: paperless-local
+  thymeleaf:
+    cache: false
+    encoding: UTF-8
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+logging:
+  level:
+    com.paperless.local: debug
+
+app:
+  upload-dir: uploads
