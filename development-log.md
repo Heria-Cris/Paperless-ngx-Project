@@ -298,6 +298,80 @@
 - 增加密码哈希，避免明文密码。
 - 为更多功能按钮增加角色级别的显示控制。
 
+### 阶段 3：数据库表与基础数据模型
+
+日期：2026-06-26
+
+阶段目标：
+
+- 接入 MySQL 和 MyBatis-Plus。
+- 设计并创建项目核心数据库表。
+- 创建 Entity、Mapper、Service 基础结构。
+- 提供本地数据库初始化说明和演示数据。
+
+完成内容：
+
+- 在 `pom.xml` 中新增 MyBatis-Plus Spring Boot 3 Starter 和 MySQL Driver。
+- 在 `application.yml` 中新增 MySQL 数据源配置和 MyBatis-Plus 配置。
+- 在启动类上新增 `@MapperScan("com.paperless.local.mapper")`。
+- 新增 6 个实体：`User`、`Document`、`DocumentCategory`、`DocumentTag`、`DocumentTagRel`、`OperationLog`。
+- 新增 6 个 Mapper：用户、文档、分类、标签、文档标签关联、操作日志。
+- 新增 6 个 Service 接口和 6 个 Service 实现类。
+- 新增 `docs/database/schema.sql`，用于创建数据库和表。
+- 新增 `docs/database/demo-data.sql`，用于插入演示数据。
+- 新增 `docs/database/README.md`，说明本地 MySQL 和 IDEA 配置方式。
+- 新增 `/dev/database-check` 开发期数据库检查接口，管理员登录后可查看各表记录数。
+
+技术与方案：
+
+- 数据库使用 MySQL 8。
+- ORM 使用 MyBatis-Plus，基础 CRUD 通过 `BaseMapper` 和 `ServiceImpl` 承接。
+- 数据库字段使用下划线命名，Java 实体使用驼峰命名，通过 MyBatis-Plus 自动映射。
+- 文档删除字段 `deleted` 使用 MyBatis-Plus 逻辑删除配置。
+- 数据库连接支持环境变量：`DB_URL`、`DB_USERNAME`、`DB_PASSWORD`。
+
+方案理由：
+
+- 阶段 3 先完成数据结构和模型层，避免直接在页面功能里临时拼数据库结构。
+- 先提供 SQL 脚本，比自动建表更适合课程答辩展示数据库设计。
+- 使用 MyBatis-Plus 能减少基础 CRUD 样板代码，后续分类、标签、文档功能可以更快落地。
+
+本地环境要求：
+
+- 需要安装并启动 MySQL 8。
+- 默认数据库名：`paperless_ngx_project`。
+- 默认账号密码：`root` / `123456`。
+- 如果本地账号密码不同，建议使用 IDEA 环境变量配置，不要把个人密码提交到 Git。
+
+验证结果：
+
+- 执行 `mvn package` 构建成功。
+- 已完成数据库建表脚本和演示数据脚本。
+- 数据库连接验证需要在本地 MySQL 初始化后，通过 `/dev/database-check` 检查。
+
+遇到的问题：
+
+- 阶段 3 引入数据库依赖后，项目启动依赖本地 MySQL 环境。
+
+解决办法：
+
+- 使用环境变量支持不同本地数据库账号密码。
+- 提供 `docs/database/README.md` 说明本地初始化方式。
+- 阶段 3 只验证编译通过，实际连接验证交给本地 MySQL 环境完成。
+
+答辩可讲点：
+
+- 数据库表围绕用户、文档、分类、标签、日志五类核心对象设计。
+- 文档与标签采用中间表，支持多对多关系。
+- 文档删除采用逻辑删除字段，为后续回收站功能预留空间。
+- 文件实体仍然保存在本地磁盘，数据库只保存路径和元数据，职责清晰。
+
+后续可优化：
+
+- 阶段 4 将分类和标签页面接入真实数据库 CRUD。
+- 后续将登录账号从内存数据替换为 `sys_user` 表。
+- 增加密码哈希和用户状态校验。
+
 ## 功能开发记录模板
 
 后续每实现一个功能，可以复制以下模板追加记录。

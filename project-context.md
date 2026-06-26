@@ -53,6 +53,7 @@
 - 本地文件系统保存真实上传文件。
 - 数据库只保存文件路径、原始文件名、元数据和关联关系。
 - 基础搜索使用 MySQL LIKE，后期可选 MySQL FULLTEXT。
+- 本地数据库初始化脚本位于 `docs/database/schema.sql`，演示数据位于 `docs/database/demo-data.sql`。
 
 ## 明确不做
 

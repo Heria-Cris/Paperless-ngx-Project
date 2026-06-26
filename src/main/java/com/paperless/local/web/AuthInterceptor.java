@@ -19,7 +19,8 @@ public class AuthInterceptor implements HandlerInterceptor {
             "/categories",
             "/tags",
             "/users",
-            "/logs"
+            "/logs",
+            "/dev"
     );
 
     @Override
