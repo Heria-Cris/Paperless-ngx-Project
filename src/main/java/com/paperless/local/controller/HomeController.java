@@ -6,6 +6,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @Controller
 public class HomeController {
@@ -35,15 +36,12 @@ public class HomeController {
             new LookupView("公司", "#9b4bd8", 7)
     );
 
-    @GetMapping("/login")
-    public String login(Model model) {
-        model.addAttribute("pageTitle", "登录");
-        return "login";
-    }
-
     @GetMapping({"/", "/dashboard"})
-    public String dashboard(Model model) {
+    public String dashboard(@RequestParam(name = "denied", required = false) String denied, Model model) {
         prepareApp(model, "dashboard", "Dashboard");
+        if (denied != null) {
+            model.addAttribute("warning", "当前账号无权访问该管理页面");
+        }
         return "app";
     }
 

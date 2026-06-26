@@ -17,7 +17,12 @@
             <span>⌕</span>
             <input type="search" name="keyword" placeholder="Search documents">
         </form>
-        <a class="avatar" href="/login" title="登录">◉</a>
+        <div class="user-menu">
+            <span class="avatar">◉</span>
+            <span th:text="${currentUser.displayName}">User2</span>
+            <small th:text="${currentUser.role}">ADMIN</small>
+            <a href="/logout">退出</a>
+        </div>
     </header>
 
     <aside class="side-nav">
@@ -33,19 +38,22 @@
         <h3>Manage</h3>
         <nav>
             <a href="/documents">♙ Correspondents</a>
-            <a th:classappend="${activePage == 'tags'} ? ' active'" href="/tags">◇ Tags</a>
-            <a th:classappend="${activePage == 'categories'} ? ' active'" href="/categories"># Document Types</a>
+            <a th:if="${currentUser.admin}" th:classappend="${activePage == 'tags'} ? ' active'" href="/tags">◇ Tags</a>
+            <a th:if="${currentUser.admin}" th:classappend="${activePage == 'categories'} ? ' active'" href="/categories"># Document Types</a>
             <a href="/documents">▱ Storage Paths</a>
             <a href="/documents">☷ Custom Fields</a>
             <a href="/documents/upload">▤ Templates</a>
             <a href="/documents/upload">✉ Mail</a>
         </nav>
         <h3>Administration</h3>
-        <nav>
+        <nav th:if="${currentUser.admin}">
             <a href="/dashboard">⚙ Settings</a>
             <a th:classappend="${activePage == 'users'} ? ' active'" href="/users">♧ Users & Groups</a>
             <a href="/dashboard">☰ File Tasks <span class="count-badge">16</span></a>
             <a th:classappend="${activePage == 'logs'} ? ' active'" href="/logs">☰ Logs</a>
+        </nav>
+        <nav th:unless="${currentUser.admin}">
+            <a href="/dashboard">⚙ Personal settings</a>
         </nav>
         <footer>
             <a href="https://docs.paperless-ngx.com/#screenshots">? Documentation</a>
@@ -54,10 +62,11 @@
     </aside>
 
     <main class="content">
+        <div class="alert warning" th:if="${warning}" th:text="${warning}">当前账号无权访问该管理页面</div>
         <section th:if="${activePage == 'dashboard'}">
             <div class="page-title-row">
                 <h1>Dashboard</h1>
-                <p>Hello User2, welcome to Paperless-ngx</p>
+                <p>Hello <span th:text="${currentUser.displayName}">User2</span>, welcome to Paperless-ngx</p>
                 <div class="wordmark"><span class="leaf-mark">◒</span> Paperless<small>ngx</small></div>
             </div>
 

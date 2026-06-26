@@ -132,9 +132,29 @@ button,
 }
 
 .avatar {
-    margin-left: auto;
     color: #ffffff;
     font-size: 20px;
+}
+
+.user-menu {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    color: #ffffff;
+}
+
+.user-menu small {
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.16);
+    color: #dfeee0;
+    font-size: 12px;
+}
+
+.user-menu a {
+    color: #ffffff;
+    font-size: 14px;
 }
 
 .side-nav {
@@ -197,6 +217,32 @@ button,
     grid-row: 2;
     padding: 24px;
     overflow: auto;
+}
+
+.alert {
+    margin-bottom: 16px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: #ffffff;
+}
+
+.alert.success {
+    border-color: #badbcc;
+    background: #d1e7dd;
+    color: #0f5132;
+}
+
+.alert.danger {
+    border-color: #f5c2c7;
+    background: #f8d7da;
+    color: #842029;
+}
+
+.alert.warning {
+    border-color: #ffecb5;
+    background: #fff3cd;
+    color: #664d03;
 }
 
 .page-title-row {
