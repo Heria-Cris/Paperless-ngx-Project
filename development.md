@@ -1,5 +1,128 @@
 # Development Technical Notes
 
+## 阶段 6：真实文件上传与下载
+
+### 目标
+
+阶段 6 的目标是把阶段 5 的“元数据占位上传”升级为真实文件上传与下载。系统不再要求用户手动输入原始文件名和文件类型，而是从上传文件中自动解析并保存到数据库，同时将真实文件写入本地 `uploads` 目录。
+
+### 技术方案
+
+- 使用 Spring MVC `MultipartFile` 接收上传文件。
+- 使用 `FileStorageService` 封装文件存储逻辑，避免 Controller 直接处理底层文件路径。
+- 使用 `app.upload-dir` 配置上传根目录，默认值为 `uploads`。
+- 文件实体仍然保存到本地磁盘，数据库只保存文件路径和元数据。
+- 使用 `ResponseEntity<Resource>` 返回下载响应。
+- 使用 `Content-Disposition: attachment` 保证浏览器按原始文件名下载。
+
+### 文件存储实现
+
+新增服务：
+
+```text
+src/main/java/com/paperless/local/service/FileStorageService.java
+```
+
+核心职责：
+
+- 校验文件是否为空。
+- 使用 `StringUtils.cleanPath` 清洗原始文件名。
+- 拒绝包含 `..`、`/`、`\` 的文件名，避免路径穿越。
+- 校验扩展名，只允许 `pdf`、`doc`、`docx`、`xls`、`xlsx`、`ppt`、`pptx`、`png`、`jpg`、`jpeg`、`txt`、`csv`。
+- 按日期和用户 ID 创建目录：
+
+```text
+uploads/{year}/{month}/user_{userId}/
+```
+
+- 使用 UUID 生成服务器存储文件名，避免同名覆盖。
+- 返回 `StoredFile` 记录原始文件名、存储文件名、存储路径、文件大小和文件类型。
+
+### 上传流程
+
+路由：
+
+```text
+POST /documents
+```
+
+实现流程：
+
+1. 用户在 `/documents/upload` 选择真实文件并填写标题、分类、标签、描述。
+2. Controller 校验标题不能为空。
+3. 调用 `FileStorageService.store(file, userId)` 将文件保存到本地。
+4. 将文件元数据写入 `document` 表：
+   - `original_filename`
+   - `stored_filename`
+   - `storage_path`
+   - `file_size`
+   - `file_type`
+   - `category_id`
+   - `upload_user_id`
+   - `description`
+5. 将选择的标签写入 `document_tag_rel`。
+6. 上传成功后重定向到文档详情页。
+
+### 下载流程
+
+路由：
+
+```text
+GET /documents/{id}/download
+```
+
+实现流程：
+
+1. 根据文档 ID 查询文档。
+2. 调用已有权限逻辑判断当前用户是否可访问该文档。
+3. 通过 `storage_path` 解析真实文件路径。
+4. 检查文件是否存在且是普通文件。
+5. 使用 `UrlResource` 包装文件。
+6. 使用 UTF-8 编码的原始文件名设置下载响应头。
+7. 返回文件资源。
+
+权限规则：
+
+- 管理员可以下载全部文档。
+- 普通用户只能下载 `upload_user_id` 属于自己的文档。
+- 无权限或文件不存在时返回 404。
+
+### 事务与异常处理
+
+上传文档涉及两类资源：
+
+- 文件系统中的真实文件。
+- MySQL 中的文档元数据和标签关系。
+
+当前实现使用 `@Transactional` 保护数据库写入。如果文件已经保存但数据库写入失败，会尝试调用 `deleteIfExists` 清理刚上传的文件，并将当前事务标记为回滚。
+
+逻辑删除文档时暂不物理删除文件，因为当前项目后续还计划支持回收站。此时数据库中的文档记录被逻辑删除，文件仍保留在磁盘中，后续可在“彻底删除”功能中统一清理物理文件。
+
+### 页面改造
+
+`app.html` 上传页从手动输入文件名和文件类型改为：
+
+```html
+<form method="post" action="/documents" enctype="multipart/form-data">
+    <input type="file" name="file" required>
+</form>
+```
+
+详情页新增：
+
+- `Download` 按钮。
+- 文件大小展示。
+
+### 本阶段验证
+
+已执行：
+
+```powershell
+mvn package
+```
+
+结果：构建成功，说明 Controller、Service、模板和依赖编译通过。
+
 > 本文件用于记录开发中的技术方案、实现细节和阶段性决策，重点服务于后期答辩和代码讲解。`progress.md` 记录进度，`development-log.md` 记录过程，本文件更偏技术实现说明。
 
 ## 阶段 0：项目骨架与运行入口

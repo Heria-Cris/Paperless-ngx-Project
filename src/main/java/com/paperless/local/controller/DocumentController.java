@@ -1,5 +1,8 @@
 package com.paperless.local.controller;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -9,13 +12,20 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.paperless.local.entity.Document;
@@ -26,6 +36,7 @@ import com.paperless.local.model.LoginUser;
 import com.paperless.local.service.DocumentService;
 import com.paperless.local.service.DocumentTagRelService;
 import com.paperless.local.service.DocumentTagService;
+import com.paperless.local.service.FileStorageService;
 import com.paperless.local.service.UserService;
 
 @Controller
@@ -35,6 +46,7 @@ public class DocumentController {
     private final DocumentTagService tagService;
     private final DocumentTagRelService tagRelService;
     private final UserService userService;
+    private final FileStorageService fileStorageService;
     private final HomeController homeController;
 
     public DocumentController(
@@ -42,12 +54,14 @@ public class DocumentController {
             DocumentTagService tagService,
             DocumentTagRelService tagRelService,
             UserService userService,
+            FileStorageService fileStorageService,
             HomeController homeController
     ) {
         this.documentService = documentService;
         this.tagService = tagService;
         this.tagRelService = tagRelService;
         this.userService = userService;
+        this.fileStorageService = fileStorageService;
         this.homeController = homeController;
     }
 
@@ -79,37 +93,74 @@ public class DocumentController {
     @Transactional
     public String create(
             @RequestParam String title,
-            @RequestParam String originalFilename,
-            @RequestParam String fileType,
+            @RequestParam("file") MultipartFile file,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) List<Long> tagIds,
             @RequestParam(required = false) String description,
             HttpServletRequest request,
             RedirectAttributes redirectAttributes
     ) {
-        if (isBlank(title) || isBlank(originalFilename) || isBlank(fileType)) {
-            redirectAttributes.addFlashAttribute("error", "文档标题、原始文件名和文件类型不能为空");
+        if (isBlank(title)) {
+            redirectAttributes.addFlashAttribute("error", "文档标题不能为空");
             return "redirect:/documents/upload";
         }
 
-        Document document = new Document();
-        document.setTitle(title.trim());
-        document.setOriginalFilename(originalFilename.trim());
-        document.setFileType(fileType.trim().toUpperCase());
-        document.setCategoryId(categoryId);
-        document.setUploadUserId(resolveUserId(currentUser(request)));
-        document.setDescription(description);
-        document.setFileSize(0L);
-        document.setStoredFilename("metadata-only-" + System.currentTimeMillis() + "-" + originalFilename.trim());
-        document.setStoragePath("uploads/metadata-only/" + document.getStoredFilename());
-        document.setDeleted(0);
-        document.setUploadedAt(LocalDateTime.now());
-        document.setUpdatedAt(LocalDateTime.now());
-        documentService.save(document);
-        replaceTags(document.getId(), safeTagIds(tagIds));
+        FileStorageService.StoredFile storedFile = null;
+        try {
+            Long userId = resolveUserId(currentUser(request));
+            storedFile = fileStorageService.store(file, userId);
 
-        redirectAttributes.addFlashAttribute("success", "文档元数据创建成功");
-        return "redirect:/documents/" + document.getId();
+            Document document = new Document();
+            document.setTitle(title.trim());
+            document.setOriginalFilename(storedFile.originalFilename());
+            document.setFileType(storedFile.fileType());
+            document.setCategoryId(categoryId);
+            document.setUploadUserId(userId);
+            document.setDescription(description);
+            document.setFileSize(storedFile.fileSize());
+            document.setStoredFilename(storedFile.storedFilename());
+            document.setStoragePath(storedFile.storagePath());
+            document.setDeleted(0);
+            document.setUploadedAt(LocalDateTime.now());
+            document.setUpdatedAt(LocalDateTime.now());
+            documentService.save(document);
+            replaceTags(document.getId(), safeTagIds(tagIds));
+
+            redirectAttributes.addFlashAttribute("success", "文件上传成功");
+            return "redirect:/documents/" + document.getId();
+        } catch (IllegalArgumentException ex) {
+            redirectAttributes.addFlashAttribute("error", ex.getMessage());
+        } catch (Exception ex) {
+            if (storedFile != null) {
+                fileStorageService.deleteIfExists(storedFile.storagePath());
+            }
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            redirectAttributes.addFlashAttribute("error", "文件上传失败，请检查文件后重试");
+        }
+        return "redirect:/documents/upload";
+    }
+
+    @GetMapping("/documents/{id}/download")
+    public ResponseEntity<Resource> download(@PathVariable Long id, HttpServletRequest request) throws Exception {
+        Optional<Document> document = findAccessibleDocument(id, currentUser(request));
+        if (document.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Document current = document.get();
+        Path filePath = fileStorageService.resolve(current.getStoragePath());
+        if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Resource resource = new UrlResource(filePath.toUri());
+        ContentDisposition contentDisposition = ContentDisposition.attachment()
+                .filename(current.getOriginalFilename(), StandardCharsets.UTF_8)
+                .build();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
+                .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(Files.size(filePath)))
+                .body(resource);
     }
 
     @GetMapping("/documents/{id}")

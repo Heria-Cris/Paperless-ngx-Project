@@ -498,6 +498,10 @@ button,
     font-size: 18px;
 }
 
+.drop-zone span:nth-of-type(3) {
+    display: none;
+}
+
 .form-grid,
 .form-panel {
     display: grid;
