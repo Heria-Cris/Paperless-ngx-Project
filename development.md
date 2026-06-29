@@ -2,6 +2,498 @@
 
 > 本文件用于记录开发中的技术方案、实现细节和阶段性决策，重点服务于后期答辩和代码讲解。`progress.md` 记录进度，`development-log.md` 记录过程，本文件更偏技术实现说明。
 
+## 阶段 0：项目骨架与运行入口
+
+### 目标
+
+阶段 0 的目标是先创建一个可以启动、可以访问页面的 Spring Boot Web 项目，为后续界面和业务功能开发提供稳定基础。
+
+### 技术选型
+
+- Java 17：符合项目文档要求，也适配 Spring Boot 3。
+- Spring Boot 3：用于快速搭建 Web 应用。
+- Spring MVC：负责 Controller 路由和页面请求处理。
+- Thymeleaf：负责服务端页面渲染。
+- Maven：负责依赖管理和项目构建。
+- Lombok：为后续实体类、DTO、VO 减少样板代码。
+- Hutool：为后续文件处理、日期处理、UUID、加密摘要等工具能力预留。
+- Spring Validation：为后续表单参数校验预留。
+
+### 项目结构
+
+阶段 0 建立基础结构：
+
+```text
+src/main/java/com/paperless/local
+src/main/resources/templates
+src/main/resources/static/css
+src/main/resources/application.yml
+pom.xml
+```
+
+核心文件：
+
+- `PaperlessLocalApplication.java`：Spring Boot 启动类。
+- `HomeController.java`：阶段 0 首页入口。
+- `application.yml`：项目端口、Thymeleaf、上传大小等基础配置。
+- `dashboard.html`：阶段 0 首页模板。
+- `app.css`：基础页面样式。
+
+### 实现方案
+
+阶段 0 没有直接引入数据库依赖，原因是此时还没有配置 MySQL，如果提前加入 MyBatis-Plus 和 MySQL Driver，应用启动可能因为找不到数据源而失败。
+
+实现流程：
+
+1. 创建 Maven 工程和 `pom.xml`。
+2. 引入 Web、Thymeleaf、Validation、Lombok、Hutool。
+3. 创建启动类。
+4. 创建首页 Controller。
+5. 创建基础首页模板。
+6. 配置端口 `8080`。
+7. 使用 `mvn package` 验证构建。
+8. 临时启动 Jar，访问 `/dashboard` 验证页面。
+
+### 测试方式
+
+构建测试：
+
+```powershell
+mvn package
+```
+
+启动测试：
+
+```powershell
+java -jar target/paperless-local-0.0.1-SNAPSHOT.jar
+```
+
+浏览器访问：
+
+```text
+http://localhost:8080/dashboard
+```
+
+预期：
+
+- 项目正常启动。
+- 页面返回 HTTP 200。
+- 首页可以正常渲染。
+
+## 阶段 1：基础可访问界面
+
+### 目标
+
+阶段 1 的目标是先落地一套基础可访问、可点击、可演示的后台管理界面。页面可以先使用模拟数据，不急于接数据库和真实业务。
+
+### 界面参考
+
+界面风格参考 Paperless-ngx 官方截图：
+
+```text
+https://docs.paperless-ngx.com/#screenshots
+```
+
+主要参考点：
+
+- 深绿色顶部导航栏。
+- 左侧浅色侧边栏。
+- 文档列表密集表格。
+- 筛选工具条。
+- 彩色标签。
+- 仪表盘统计面板。
+- 后台管理系统风格。
+
+### 页面路由
+
+阶段 1 落地以下页面：
+
+```text
+/login
+/dashboard
+/documents
+/documents/upload
+/documents/{id}
+/documents/{id}/edit
+/categories
+/tags
+/users
+/logs
+```
+
+### 前端实现
+
+使用 Thymeleaf 服务端渲染。
+
+核心模板：
+
+- `login.html`：登录页。
+- `app.html`：后台主模板。
+- `app.css`：统一样式。
+
+`app.html` 使用 `activePage` 控制不同页面区域显示：
+
+```text
+activePage == 'dashboard'
+activePage == 'documents'
+activePage == 'upload'
+activePage == 'document-detail'
+activePage == 'document-edit'
+activePage == 'categories'
+activePage == 'tags'
+activePage == 'users'
+activePage == 'logs'
+```
+
+这样设计的原因：
+
+- 早期可以快速统一界面风格。
+- 避免多个模板重复写顶栏和侧边栏。
+- 方便后续逐步替换局部页面为真实数据。
+
+### 后端实现
+
+阶段 1 主要由 `HomeController` 提供页面路由。
+
+页面数据暂时使用 Java 内存模拟数据：
+
+- `DOCUMENTS`：模拟文档列表。
+- `CATEGORIES`：模拟分类。
+- `TAGS`：模拟标签。
+
+模拟数据的作用：
+
+- 页面可以完整展示文档、标签、统计信息。
+- 数据库未完成时仍能演示系统形态。
+- 后续阶段可以逐步替换为真实数据库查询。
+
+### 测试方式
+
+启动项目：
+
+```powershell
+mvn spring-boot:run
+```
+
+浏览器依次访问：
+
+```text
+http://localhost:8080/login
+http://localhost:8080/dashboard
+http://localhost:8080/documents
+http://localhost:8080/documents/upload
+http://localhost:8080/documents/0
+http://localhost:8080/documents/0/edit
+http://localhost:8080/categories
+http://localhost:8080/tags
+http://localhost:8080/users
+http://localhost:8080/logs
+```
+
+预期：
+
+- 所有页面可以访问。
+- 页面风格统一。
+- 菜单可以跳转。
+- 文档、分类、标签区域有模拟数据。
+
+## 阶段 2：基础登录与页面访问控制
+
+### 目标
+
+阶段 2 的目标是让系统从静态页面进入“有登录状态”的基础 Web 系统，实现登录、Session、退出和基础权限控制。
+
+### 技术方案
+
+使用：
+
+- Session：保存当前登录用户。
+- Spring MVC Controller：处理登录和退出。
+- HandlerInterceptor：统一拦截未登录访问和管理员权限。
+- 内存账号：阶段性替代数据库用户表。
+
+没有使用 Spring Security，原因：
+
+- 当前只需要基础登录和角色判断。
+- Session + Interceptor 足够满足 MVP。
+- 避免引入复杂配置，降低课程项目实现难度。
+
+### 核心类
+
+- `LoginUser`：保存登录用户信息。
+- `AuthService`：校验账号密码。
+- `AuthController`：处理 `/login` 和 `/logout`。
+- `SessionKeys`：统一 Session key。
+- `AuthInterceptor`：未登录拦截和权限判断。
+- `WebMvcConfig`：注册拦截器。
+
+### 登录流程
+
+1. 用户访问 `/login`。
+2. 提交用户名和密码到 `POST /login`。
+3. `AuthController` 调用 `AuthService` 校验。
+4. 登录成功后将 `LoginUser` 存入 Session。
+5. 重定向到 `/dashboard`。
+6. 登录失败则回到登录页并显示错误提示。
+
+测试账号：
+
+```text
+admin / admin123
+user / user123
+```
+
+### 拦截流程
+
+拦截器对后台页面进行统一检查：
+
+1. 获取当前 Session。
+2. 从 Session 中读取 `LOGIN_USER`。
+3. 如果不存在，跳转 `/login`。
+4. 如果访问管理员页面且当前用户不是管理员，跳转 `/dashboard?denied`。
+5. 如果权限通过，将当前用户放入 request，供 Thymeleaf 页面读取。
+
+管理员页面：
+
+```text
+/categories
+/tags
+/users
+/logs
+/dev
+```
+
+### 页面实现
+
+登录页：
+
+- 表单提交到 `POST /login`。
+- 登录失败显示“用户名或密码错误”。
+- 退出后显示“已退出登录”。
+
+后台页：
+
+- 顶栏显示当前用户名称。
+- 顶栏显示角色。
+- 提供退出入口。
+- 管理员显示分类、标签、用户、日志菜单。
+- 普通用户隐藏管理员菜单。
+
+### 测试方式
+
+未登录拦截：
+
+```text
+直接访问 http://localhost:8080/dashboard
+```
+
+预期跳转：
+
+```text
+/login
+```
+
+管理员测试：
+
+```text
+admin / admin123
+```
+
+预期：
+
+- 登录成功。
+- 可访问 `/categories`、`/tags`、`/users`、`/logs`。
+
+普通用户测试：
+
+```text
+user / user123
+```
+
+预期：
+
+- 可访问 `/dashboard`、`/documents`。
+- 访问 `/categories`、`/tags` 会跳转 `/dashboard?denied`。
+
+退出测试：
+
+```text
+http://localhost:8080/logout
+```
+
+预期：
+
+- 跳转 `/login?logout`。
+- 再访问 `/dashboard` 会重新跳转登录页。
+
+## 阶段 3：数据库表与基础数据模型
+
+### 目标
+
+阶段 3 的目标是接入 MySQL 和 MyBatis-Plus，完成系统核心表结构、实体类、Mapper 和 Service，为后续真实 CRUD 做准备。
+
+### 数据库配置
+
+在 `application.yml` 中配置：
+
+```yaml
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DB_URL:jdbc:mysql://localhost:3306/paperless_ngx_project?...}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:123456}
+```
+
+支持环境变量：
+
+```text
+DB_URL
+DB_USERNAME
+DB_PASSWORD
+```
+
+这样设计的原因：
+
+- 默认配置方便本地快速启动。
+- 环境变量可以避免把个人数据库密码写入 Git。
+
+### MyBatis-Plus 配置
+
+配置内容：
+
+- Mapper XML 扫描路径。
+- 下划线转驼峰。
+- SQL 日志输出。
+- 主键自增。
+- 逻辑删除字段 `deleted`。
+
+启动类增加：
+
+```java
+@MapperScan("com.paperless.local.mapper")
+```
+
+用于扫描 Mapper 接口。
+
+### 表结构设计
+
+核心表：
+
+```text
+sys_user
+document
+document_category
+document_tag
+document_tag_rel
+operation_log
+```
+
+设计关系：
+
+- 用户与文档：一对多。
+- 分类与文档：一对多。
+- 标签与文档：多对多，通过 `document_tag_rel` 实现。
+- 操作日志记录用户关键行为。
+
+### 代码模型
+
+实体类：
+
+- `User`
+- `Document`
+- `DocumentCategory`
+- `DocumentTag`
+- `DocumentTagRel`
+- `OperationLog`
+
+Mapper：
+
+- 每张表对应一个 Mapper。
+- Mapper 继承 `BaseMapper<T>`。
+
+Service：
+
+- 每张表对应一个 Service 接口。
+- Service 实现类继承 `ServiceImpl<Mapper, Entity>`。
+
+这样设计的原因：
+
+- MyBatis-Plus 可以提供基础 CRUD。
+- 后续业务代码可以优先写在 Service 层。
+- Controller 不直接操作 Mapper，保持分层清晰。
+
+### SQL 脚本
+
+建表脚本：
+
+```text
+docs/database/schema.sql
+```
+
+演示数据：
+
+```text
+docs/database/demo-data.sql
+```
+
+数据库说明：
+
+```text
+docs/database/README.md
+```
+
+### 数据库检查接口
+
+新增开发期接口：
+
+```text
+/dev/database-check
+```
+
+作用：
+
+- 验证项目是否能连接数据库。
+- 验证 Mapper 和 Service 是否能查询表数据。
+- 返回各表记录数。
+
+该接口被归入管理员权限，需要管理员登录后访问。
+
+### 测试方式
+
+先执行 SQL：
+
+```sql
+source E:/workspace/2606 ShiXun/Paperless-ngx-Project/docs/database/schema.sql;
+source E:/workspace/2606 ShiXun/Paperless-ngx-Project/docs/database/demo-data.sql;
+```
+
+启动项目：
+
+```powershell
+mvn spring-boot:run
+```
+
+管理员登录后访问：
+
+```text
+http://localhost:8080/dev/database-check
+```
+
+预期返回：
+
+```json
+{
+  "status": "ok",
+  "users": 2,
+  "documents": 3,
+  "categories": 5,
+  "tags": 5,
+  "documentTagRelations": 5,
+  "operationLogs": 3
+}
+```
+
 ## 阶段 4：分类和标签真实 CRUD
 
 ### 目标

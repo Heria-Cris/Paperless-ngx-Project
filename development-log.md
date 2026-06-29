@@ -48,6 +48,199 @@
 
 > 我们没有一开始就直接堆复杂功能，而是先完成可访问的系统原型，确定整体页面和业务流程，再逐步把模拟数据替换为真实数据，把页面操作接入数据库、文件系统和权限控制。这样能保证项目每个阶段都有可运行成果，也方便团队协作和阶段性验收。
 
+## 阶段功能与测试汇总
+
+### 阶段 0：项目骨架与运行入口
+
+实现功能：
+
+- 创建 Spring Boot 3 + Maven 工程。
+- 配置基础依赖：Web、Thymeleaf、Validation、Lombok、Hutool。
+- 创建启动类 `PaperlessLocalApplication`。
+- 创建首页 Controller。
+- 创建基础首页模板和 CSS。
+- 配置 `application.yml`。
+
+测试功能：
+
+- 测试 Maven 构建是否成功。
+- 测试项目是否能启动。
+- 测试 `/dashboard` 是否能访问。
+- 测试 Thymeleaf 模板是否能正常渲染。
+
+测试方式：
+
+```powershell
+mvn package
+java -jar target/paperless-local-0.0.1-SNAPSHOT.jar
+```
+
+访问：
+
+```text
+http://localhost:8080/dashboard
+```
+
+### 阶段 1：基础可访问界面
+
+实现功能：
+
+- 登录页。
+- 仪表盘首页。
+- 文档列表页。
+- 文档上传页。
+- 文档详情页。
+- 文档编辑页。
+- 分类管理静态页。
+- 标签管理静态页。
+- 用户管理静态页。
+- 日志静态页。
+- Paperless-ngx 风格顶栏、侧边栏、表格、标签和面板样式。
+- 使用模拟数据展示页面内容。
+
+测试功能：
+
+- 测试所有页面 URL 是否可以访问。
+- 测试侧边栏菜单是否可以跳转。
+- 测试页面样式是否统一。
+- 测试文档列表、分类、标签是否能展示模拟数据。
+
+测试地址：
+
+```text
+/login
+/dashboard
+/documents
+/documents/upload
+/documents/0
+/documents/0/edit
+/categories
+/tags
+/users
+/logs
+```
+
+预期：
+
+- 所有页面返回 HTTP 200。
+- 页面能正常渲染。
+
+### 阶段 2：基础登录与页面访问控制
+
+实现功能：
+
+- 登录表单 POST 提交。
+- 内存账号认证。
+- Session 保存登录用户。
+- 退出登录。
+- 未登录拦截。
+- 管理员和普通用户基础角色判断。
+- 管理员菜单和普通用户菜单差异展示。
+- 普通用户访问管理页面时跳转并提示无权限。
+
+测试功能：
+
+- 未登录访问后台页面是否跳转登录页。
+- 管理员是否能登录。
+- 管理员是否能访问管理页面。
+- 普通用户是否能登录。
+- 普通用户是否不能访问管理页面。
+- 退出登录后是否清除 Session。
+- 错误密码是否提示登录失败。
+
+测试账号：
+
+```text
+admin / admin123
+user / user123
+```
+
+重点测试地址：
+
+```text
+/dashboard
+/categories
+/tags
+/users
+/logs
+/logout
+```
+
+### 阶段 3：数据库表与基础数据模型
+
+实现功能：
+
+- 接入 MySQL Driver。
+- 接入 MyBatis-Plus。
+- 配置数据源。
+- 配置 Mapper 扫描。
+- 创建用户、文档、分类、标签、文档标签关联、操作日志实体。
+- 创建对应 Mapper。
+- 创建对应 Service 和 ServiceImpl。
+- 创建建表 SQL。
+- 创建演示数据 SQL。
+- 创建数据库初始化说明。
+- 创建 `/dev/database-check` 数据库检查接口。
+
+测试功能：
+
+- 测试 Maven 构建是否成功。
+- 测试 MySQL 脚本是否能执行。
+- 测试数据表是否创建成功。
+- 测试演示数据是否插入成功。
+- 测试项目是否能连接 MySQL。
+- 测试 `/dev/database-check` 是否能返回表记录数。
+
+测试 SQL：
+
+```sql
+SHOW TABLES;
+SELECT COUNT(*) FROM sys_user;
+SELECT COUNT(*) FROM document;
+SELECT COUNT(*) FROM document_category;
+SELECT COUNT(*) FROM document_tag;
+SELECT COUNT(*) FROM document_tag_rel;
+SELECT COUNT(*) FROM operation_log;
+```
+
+测试接口：
+
+```text
+/dev/database-check
+```
+
+### 阶段 4：分类和标签真实 CRUD
+
+实现功能：
+
+- 分类列表从数据库读取。
+- 分类新增。
+- 分类编辑。
+- 分类删除。
+- 分类删除前检查是否被文档引用。
+- 标签列表从数据库读取。
+- 标签新增。
+- 标签编辑。
+- 标签删除。
+- 标签删除时解除文档标签关联。
+- 分类和标签页面显示成功/失败提示。
+
+测试功能：
+
+- 管理员是否能访问 `/categories`。
+- 管理员是否能访问 `/tags`。
+- 分类是否能新增、编辑、删除。
+- 被文档引用的分类是否禁止删除。
+- 标签是否能新增、编辑、删除。
+- 普通用户是否不能访问分类和标签管理。
+
+重点测试地址：
+
+```text
+/categories
+/tags
+```
+
 ## 阶段记录
 
 ### 阶段 0：需求分析与开发上下文初始化
