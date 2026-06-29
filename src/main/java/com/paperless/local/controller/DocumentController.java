@@ -70,16 +70,33 @@ public class DocumentController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) Long tagId,
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "10") Integer size,
             HttpServletRequest request,
             Model model
     ) {
-        homeController.prepareApp(model, "documents", "Documents");
+        homeController.prepareApp(model, "documents", "Documents", currentUser(request));
         List<HomeController.DocumentView> filtered = filterDocuments(keyword, categoryId, tagId, currentUser(request));
-        model.addAttribute("documents", filtered);
+        int pageSize = normalizePageSize(size);
+        int totalPages = Math.max(1, (int) Math.ceil(filtered.size() / (double) pageSize));
+        int currentPage = Math.min(Math.max(1, page), totalPages);
+        int fromIndex = Math.min((currentPage - 1) * pageSize, filtered.size());
+        int toIndex = Math.min(fromIndex + pageSize, filtered.size());
+        List<HomeController.DocumentView> pagedDocuments = filtered.subList(fromIndex, toIndex);
+
+        model.addAttribute("documents", pagedDocuments);
         model.addAttribute("documentTotal", filtered.size());
+        model.addAttribute("resultTotal", filtered.size());
         model.addAttribute("keyword", keyword);
         model.addAttribute("selectedCategoryId", categoryId);
         model.addAttribute("selectedTagId", tagId);
+        model.addAttribute("page", currentPage);
+        model.addAttribute("pageSize", pageSize);
+        model.addAttribute("totalPages", totalPages);
+        model.addAttribute("hasPrevious", currentPage > 1);
+        model.addAttribute("hasNext", currentPage < totalPages);
+        model.addAttribute("previousPage", Math.max(1, currentPage - 1));
+        model.addAttribute("nextPage", Math.min(totalPages, currentPage + 1));
         return "app";
     }
 
@@ -310,6 +327,13 @@ public class DocumentController {
 
     private List<Long> safeTagIds(List<Long> tagIds) {
         return tagIds == null ? Collections.emptyList() : tagIds;
+    }
+
+    private int normalizePageSize(Integer size) {
+        if (size == null || size < 1) {
+            return 10;
+        }
+        return Math.min(size, 50);
     }
 
     private boolean isBlank(String value) {

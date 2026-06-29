@@ -131,7 +131,7 @@
                         <ul class="stat-list">
                             <li><span>Documents in inbox:</span><strong th:text="${inboxTotal}">5</strong></li>
                             <li><span>Total documents:</span><strong th:text="${documentTotal}">64</strong></li>
-                            <li><span>Total characters:</span><strong>2,514,649</strong></li>
+                            <li><span>Storage used:</span><strong th:text="${storageTotal}">0 B</strong></li>
                             <li><span>Tags:</span><strong th:text="${tagTotal}">28</strong></li>
                             <li><span>Document Types:</span><strong th:text="${categoryTotal}">5</strong></li>
                         </ul>
@@ -168,10 +168,19 @@
                     <option value="">▣ Document type</option>
                     <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.name}" th:selected="${selectedCategoryId != null && selectedCategoryId == category.id}">Category</option>
                 </select>
+                <select name="size">
+                    <option value="5" th:selected="${pageSize == 5}">5 / page</option>
+                    <option value="10" th:selected="${pageSize == 10}">10 / page</option>
+                    <option value="20" th:selected="${pageSize == 20}">20 / page</option>
+                    <option value="50" th:selected="${pageSize == 50}">50 / page</option>
+                </select>
                 <button type="submit">Search</button>
                 <a class="outline-button muted-button" href="/documents">× Reset filters</a>
             </form>
-            <p class="result-count"><span th:text="${documentTotal}">0</span> documents</p>
+            <div class="result-meta">
+                <p class="result-count"><span th:text="${resultTotal}">0</span> documents</p>
+                <p class="page-indicator">Page <span th:text="${page}">1</span> of <span th:text="${totalPages}">1</span></p>
+            </div>
             <section class="panel table-panel">
                 <table class="data-table documents-table">
                     <thead>
@@ -205,6 +214,15 @@
                     </tbody>
                 </table>
             </section>
+            <nav class="pagination" th:if="${totalPages > 1}">
+                <a class="outline-button"
+                   th:classappend="${!hasPrevious} ? ' disabled'"
+                   th:href="@{/documents(keyword=${keyword}, categoryId=${selectedCategoryId}, tagId=${selectedTagId}, size=${pageSize}, page=${previousPage})}">Previous</a>
+                <span><strong th:text="${page}">1</strong> / <span th:text="${totalPages}">1</span></span>
+                <a class="outline-button"
+                   th:classappend="${!hasNext} ? ' disabled'"
+                   th:href="@{/documents(keyword=${keyword}, categoryId=${selectedCategoryId}, tagId=${selectedTagId}, size=${pageSize}, page=${nextPage})}">Next</a>
+            </nav>
         </section>
 
         <section th:if="${activePage == 'upload'}">

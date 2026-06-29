@@ -1030,3 +1030,56 @@ currentUser.isAdmin() || currentUserId == document.uploadUserId
 - 本地目录存储。
 - 下载时使用原始文件名。
 - 下载前权限校验。
+
+## 阶段 7：搜索、筛选、分页与首页统计
+
+### 目标
+
+阶段 7 的目标是完善文档列表的检索体验和首页统计信息，让系统从“能列出文档”进一步变成“能按条件查找、能分页浏览、能展示真实统计”的管理系统。
+
+### 功能范围
+
+- 文档关键词搜索。
+- 分类筛选。
+- 标签筛选。
+- 搜索条件组合使用。
+- 文档列表分页。
+- 每页条数选择。
+- 分页时保留筛选条件。
+- Dashboard 首页统计改为真实数据。
+- 首页统计按当前用户权限范围计算。
+- 首页新增存储空间统计。
+
+### 搜索与筛选实现
+
+文档列表入口：`GET /documents`。
+
+支持参数：`keyword`、`categoryId`、`tagId`、`page`、`size`。
+
+筛选逻辑位于 `DocumentController.filterDocuments(...)`：先按当前用户权限过滤文档，再按分类、标签、关键词组合筛选，最后转换为页面展示对象 `DocumentView`。
+
+当前实现仍然采用 Java 内存过滤，原因是项目数据量处于课程实训规模，优先保证实现清晰和页面可演示。后续如果文档数量增大，可将筛选、排序和分页下沉到 MyBatis-Plus 分页查询或自定义 SQL。
+
+### 分页实现
+
+新增参数：`page` 表示当前页，默认 1；`size` 表示每页条数，默认 10，最大限制 50。
+
+分页处理流程：先得到过滤后的完整结果列表，再根据 `size` 计算 `totalPages`，修正非法页码，使用 `fromIndex` 和 `toIndex` 截取当前页数据，并向模板传递 `page`、`pageSize`、`totalPages`、`hasPrevious`、`hasNext`、`previousPage`、`nextPage`、`resultTotal`。
+
+页面上新增每页条数下拉框、结果数量、当前页/总页数、Previous/Next 分页按钮。分页链接会保留 `keyword`、`categoryId`、`tagId`、`size`，避免翻页后筛选条件丢失。
+
+### 首页统计实现
+
+首页由 `HomeController.dashboard(...)` 渲染，`prepareApp(...)` 新增了可接收 `LoginUser` 的重载方法：`prepareApp(model, activePage, pageTitle, currentUser)`。
+
+统计规则：管理员统计全部文档；普通用户只统计自己可访问的文档。
+
+统计项包括：`documentTotal`、`inboxTotal`、`storageTotal`、`categoryTotal`、`tagTotal`。其中 `storageTotal` 会通过 `formatBytes(...)` 格式化为 `B`、`KB`、`MB`。
+
+### 权限边界
+
+阶段 7 没有改变阶段 5、阶段 6 的文档权限规则：管理员可搜索、筛选、分页浏览全部文档；普通用户只能搜索、筛选、分页浏览自己的文档；首页统计也遵守同样的数据范围。
+
+### 本阶段验证
+
+已执行 `mvn package`，构建成功。

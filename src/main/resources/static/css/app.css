@@ -430,8 +430,36 @@ button,
     margin-left: auto;
 }
 
-.result-count {
+.result-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
     margin: 0 0 18px;
+}
+
+.result-count,
+.page-indicator {
+    margin: 0;
+}
+
+.page-indicator {
+    color: var(--muted);
+}
+
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.pagination .disabled {
+    pointer-events: none;
+    border-color: #c8ced3;
+    color: #9aa2a9;
+    background: #f6f7f8;
 }
 
 .table-panel {
