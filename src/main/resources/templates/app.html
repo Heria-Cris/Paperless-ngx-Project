@@ -92,7 +92,7 @@
                             <tr th:each="doc, stat : ${documents}" th:if="${stat.index < 5}">
                                 <td th:text="${doc.created}">Aug 9, 2023</td>
                                 <td th:text="${doc.title}">Title</td>
-                                <td><span th:each="tag : ${doc.tags}" class="tag" th:text="${tag}">Inbox</span></td>
+                                <td><span th:each="tag : ${doc.tags}" class="tag" th:style="'background:' + ${tag.color}" th:text="${tag.name}">Inbox</span></td>
                                 <td th:text="${doc.correspondent}">Correspondent</td>
                             </tr>
                             </tbody>
@@ -117,7 +117,7 @@
                             <tr th:each="doc : ${documents}">
                                 <td th:text="${doc.created}">Aug 9, 2023</td>
                                 <td th:text="${doc.title}">Title</td>
-                                <td><span th:each="tag : ${doc.tags}" class="tag" th:text="${tag}">Inbox</span></td>
+                                <td><span th:each="tag : ${doc.tags}" class="tag" th:style="'background:' + ${tag.color}" th:text="${tag.name}">Inbox</span></td>
                                 <td th:text="${doc.correspondent}">Correspondent</td>
                             </tr>
                             </tbody>
@@ -194,7 +194,7 @@
                         <td th:text="${doc.correspondent}">Correspondent</td>
                         <td>
                             <a th:href="@{/documents/{id}(id=${doc.id})}" th:text="${doc.title}">Title</a>
-                            <span th:each="tag : ${doc.tags}" class="tag" th:text="${tag}">Inbox</span>
+                            <span th:each="tag : ${doc.tags}" class="tag" th:style="'background:' + ${tag.color}" th:text="${tag.name}">Inbox</span>
                         </td>
                         <td th:text="${doc.owner}">User2</td>
                         <td><span class="note-pill">▤ 1</span></td>
@@ -276,7 +276,7 @@
                     <label>Original filename<input readonly th:value="${selectedDocument.originalFilename}"></label>
                     <label>File type<input readonly th:value="${selectedDocument.fileType}"></label>
                     <label>Document type<input readonly th:value="${selectedDocument.documentType}"></label>
-                    <label>Tags<input readonly th:value="${#strings.listJoin(selectedDocument.tags, ', ')}"></label>
+                    <label>Tags<input readonly th:value="${#strings.listJoin(selectedDocument.tags.![name], ', ')}"></label>
                     <label>Description<textarea readonly th:text="${selectedDocument.description}">文档说明</textarea></label>
                 </div>
             </section>

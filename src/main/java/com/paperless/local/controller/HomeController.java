@@ -117,10 +117,10 @@ public class HomeController {
         List<DocumentTagRel> relations = tagRelService.list(Wrappers.<DocumentTagRel>lambdaQuery()
                 .eq(DocumentTagRel::getDocumentId, document.getId()));
         List<Long> tagIds = relations.stream().map(DocumentTagRel::getTagId).toList();
-        List<String> tagNames = tagIds.stream()
+        List<TagView> tagViews = tagIds.stream()
                 .map(tagService::getById)
                 .filter(Objects::nonNull)
-                .map(DocumentTag::getName)
+                .map(tag -> new TagView(tag.getId(), tag.getName(), tag.getColor()))
                 .toList();
         String created = document.getUploadedAt() == null ? "" : document.getUploadedAt().format(DATE_FORMATTER);
         String updated = document.getUpdatedAt() == null ? created : document.getUpdatedAt().format(DATE_FORMATTER);
@@ -129,7 +129,7 @@ public class HomeController {
                 document.getId() == null ? 0L : document.getId(),
                 ownerName(document.getUploadUserId()),
                 document.getTitle(),
-                tagNames,
+                tagViews,
                 ownerName(document.getUploadUserId()),
                 category == null ? "" : category.getName(),
                 category == null ? "" : category.getName(),
@@ -171,7 +171,7 @@ public class HomeController {
             long asn,
             String correspondent,
             String title,
-            List<String> tags,
+            List<TagView> tags,
             String owner,
             String documentType,
             String categoryName,
@@ -187,5 +187,8 @@ public class HomeController {
     }
 
     public record LookupView(Long id, String name, String description, long count) {
+    }
+
+    public record TagView(Long id, String name, String color) {
     }
 }

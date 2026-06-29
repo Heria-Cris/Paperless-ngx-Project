@@ -357,26 +357,10 @@ button,
     margin: 2px 4px 2px 0;
     padding: 2px 7px;
     border-radius: 5px;
-    background: var(--cyan);
     color: #071f1d;
     font-size: 12px;
     font-weight: 700;
     white-space: nowrap;
-}
-
-.tag:nth-of-type(2n) {
-    background: var(--orange);
-    color: #111111;
-}
-
-.tag:nth-of-type(3n) {
-    background: var(--purple);
-    color: #ffffff;
-}
-
-.tag:nth-of-type(4n) {
-    background: var(--lime);
-    color: #102610;
 }
 
 .compact-panel,
