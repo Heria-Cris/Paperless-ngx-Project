@@ -63,6 +63,8 @@
 
     <main class="content">
         <div class="alert warning" th:if="${warning}" th:text="${warning}">当前账号无权访问该管理页面</div>
+        <div class="alert success" th:if="${success}" th:text="${success}">操作成功</div>
+        <div class="alert danger" th:if="${error}" th:text="${error}">操作失败</div>
         <section th:if="${activePage == 'dashboard'}">
             <div class="page-title-row">
                 <h1>Dashboard</h1>
@@ -246,8 +248,30 @@
         <section th:if="${activePage == 'categories' || activePage == 'tags'}">
             <div class="page-title-row">
                 <h1 th:text="${activePage == 'categories' ? 'Document Types' : 'Tags'}">Manage</h1>
-                <button class="primary-button">Create</button>
             </div>
+            <section class="panel form-panel manage-form-panel">
+                <div class="panel-title">
+                    <h2 th:text="${editItem == null ? (activePage == 'categories' ? 'Create document type' : 'Create tag') : (activePage == 'categories' ? 'Edit document type' : 'Edit tag')}">Create</h2>
+                    <a th:if="${editItem != null}" class="outline-button" th:href="${activePage == 'categories' ? '/categories' : '/tags'}">Cancel edit</a>
+                </div>
+                <form class="inline-manage-form"
+                      method="post"
+                      th:action="${editItem == null ? (activePage == 'categories' ? '/categories' : '/tags') : (activePage == 'categories' ? '/categories/' + editItem.id + '/update' : '/tags/' + editItem.id + '/update')}">
+                    <label>
+                        Name
+                        <input name="name" required th:value="${editItem == null ? '' : editItem.name}" th:placeholder="${activePage == 'categories' ? '例如：课程资料' : '例如：重要'}">
+                    </label>
+                    <label th:if="${activePage == 'categories'}">
+                        Description
+                        <input name="description" th:value="${editItem == null ? '' : editItem.description}" placeholder="分类说明">
+                    </label>
+                    <label th:if="${activePage == 'tags'}">
+                        Color
+                        <input type="color" name="color" th:value="${editItem == null ? '#62c7bd' : editItem.description}">
+                    </label>
+                    <button class="primary-button" type="submit" th:text="${editItem == null ? 'Create' : 'Save'}">Create</button>
+                </form>
+            </section>
             <section class="panel table-panel">
                 <table class="data-table">
                     <thead>
@@ -259,11 +283,21 @@
                     </tr>
                     </thead>
                     <tbody>
-                    <tr th:each="item : ${activePage == 'categories' ? categories : tags}">
+                    <tr th:each="item : ${managementItems}">
                         <td th:text="${item.name}">Name</td>
-                        <td><span class="tag" th:text="${item.description}">Description</span></td>
+                        <td>
+                            <span th:if="${activePage == 'tags'}" class="color-dot" th:style="'background:' + ${item.description}"></span>
+                            <span th:class="${activePage == 'tags' ? 'tag' : ''}" th:text="${item.description}">Description</span>
+                        </td>
                         <td th:text="${item.count}">0</td>
-                        <td><button>✎</button><button>⌫</button></td>
+                        <td>
+                            <div class="row-actions">
+                                <a class="outline-button" th:href="${activePage == 'categories' ? '/categories?editId=' + item.id : '/tags?editId=' + item.id}">✎</a>
+                                <form method="post" th:action="${activePage == 'categories' ? '/categories/' + item.id + '/delete' : '/tags/' + item.id + '/delete'}">
+                                    <button type="submit">⌫</button>
+                                </form>
+                            </div>
+                        </td>
                     </tr>
                     </tbody>
                 </table>

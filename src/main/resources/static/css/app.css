@@ -458,6 +458,45 @@ button,
     padding: 22px;
 }
 
+.manage-form-panel {
+    padding: 0;
+    margin-bottom: 18px;
+}
+
+.inline-manage-form {
+    display: grid;
+    grid-template-columns: minmax(180px, 260px) minmax(240px, 1fr) auto;
+    align-items: end;
+    gap: 14px;
+    padding: 18px;
+}
+
+.row-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.row-actions form {
+    margin: 0;
+}
+
+.row-actions .outline-button,
+.row-actions button {
+    min-width: 38px;
+    min-height: 30px;
+    padding: 4px 8px;
+}
+
+.color-dot {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    margin-right: 8px;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    vertical-align: middle;
+}
+
 .drop-zone {
     display: grid;
     place-items: center;
@@ -652,6 +691,10 @@ textarea {
     }
 
     .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .inline-manage-form {
         grid-template-columns: 1fr;
     }
 }
