@@ -711,3 +711,199 @@ Wrappers.<DocumentCategory>lambdaQuery()
 - 文档上传页加载真实标签。
 - 文档编辑页可以修改分类和标签。
 - 文档列表展示真实分类和标签。
+
+## 阶段 5：文档元数据 CRUD
+
+### 目标
+
+阶段 5 的目标是将文档管理从模拟数据切换为真实数据库数据，完成文档元数据的新增、列表、详情、编辑和逻辑删除。
+
+本阶段仍然不处理真实文件内容。真实文件上传、存储和下载会在阶段 6 完成。
+
+### 涉及数据表
+
+文档表：
+
+```text
+document
+```
+
+核心字段：
+
+- `id`：文档 ID。
+- `title`：文档标题。
+- `original_filename`：原始文件名。
+- `stored_filename`：服务器存储文件名。
+- `storage_path`：服务器存储路径。
+- `file_size`：文件大小。
+- `file_type`：文件类型。
+- `category_id`：分类 ID。
+- `upload_user_id`：上传人 ID。
+- `description`：文档描述。
+- `deleted`：逻辑删除标记。
+- `uploaded_at`：上传时间。
+- `updated_at`：更新时间。
+
+文档标签关系表：
+
+```text
+document_tag_rel
+```
+
+用于保存一个文档绑定多个标签的关系。
+
+### 后端实现
+
+新增 Controller：
+
+```text
+DocumentController
+```
+
+文档路由：
+
+```text
+GET  /documents
+GET  /documents/upload
+POST /documents
+GET  /documents/{id}
+GET  /documents/{id}/edit
+POST /documents/{id}/update
+POST /documents/{id}/delete
+```
+
+使用的 Service：
+
+- `DocumentService`
+- `DocumentTagRelService`
+- `DocumentTagService`
+- `UserService`
+- `DocumentCategoryService`
+
+### 新增文档元数据流程
+
+1. 用户访问 `/documents/upload`。
+2. 页面加载真实分类和标签。
+3. 用户填写标题、原始文件名、文件类型、分类、标签和描述。
+4. 提交到 `POST /documents`。
+5. 后端校验标题、原始文件名、文件类型不能为空。
+6. 根据当前登录用户查询 `sys_user`，获得上传人 ID。
+7. 创建 `Document` 对象并保存到 `document` 表。
+8. 保存标签关系到 `document_tag_rel`。
+9. 重定向到文档详情页。
+
+阶段 5 中：
+
+- `stored_filename` 是占位生成值。
+- `storage_path` 是占位路径。
+- `file_size` 暂时为 0。
+
+这样设计的原因：
+
+- 先完成文档元数据 CRUD，让数据库关系跑通。
+- 真实文件上传涉及 Multipart、文件校验、本地存储、异常处理，放到阶段 6 更清晰。
+
+### 文档编辑流程
+
+1. 用户访问 `/documents/{id}/edit`。
+2. 后端检查文档是否存在。
+3. 后端检查当前用户是否有权限访问。
+4. 页面展示当前文档标题、原始文件名、文件类型、分类、标签、描述。
+5. 用户提交编辑表单。
+6. 后端更新 `document` 表。
+7. 删除旧的 `document_tag_rel` 关系。
+8. 插入新的标签关系。
+9. 重定向到文档详情页。
+
+标签更新采用“删除旧关联，再插入新关联”的原因：
+
+- 表单提交的是最终标签集合。
+- 重建关联比逐项 diff 更简单。
+- 当前项目数据规模小，适合课程实训。
+
+### 文档删除流程
+
+文档删除调用：
+
+```java
+documentService.removeById(id)
+```
+
+由于 `Document.deleted` 字段使用 `@TableLogic`，MyBatis-Plus 会执行逻辑删除，而不是直接物理删除。
+
+这样设计的原因：
+
+- 符合项目文档中“删除后进入回收站”的后续扩展方向。
+- 阶段 5 先让删除后的文档不再出现在正常列表中。
+- 阶段后续可以基于 `deleted` 字段实现回收站。
+
+### 文档筛选
+
+当前支持：
+
+- 关键词筛选：标题、原始文件名、描述。
+- 分类筛选：`category_id`。
+- 标签筛选：通过 `document_tag_rel` 找到文档 ID。
+
+实现方式：
+
+- 先查询文档列表。
+- 根据当前用户权限过滤。
+- 根据分类、标签、关键词过滤。
+- 转换为页面视图对象 `DocumentView`。
+
+后续可优化：
+
+- 将过滤逻辑下沉到数据库 SQL。
+- 增加分页。
+- 增加排序。
+
+### 权限控制
+
+文档权限规则：
+
+- 管理员可以查看、编辑、删除所有文档。
+- 普通用户只能查看、编辑、删除自己的文档。
+
+实现方式：
+
+```text
+currentUser.isAdmin() || currentUserId == document.uploadUserId
+```
+
+当前登录用户 ID 通过 `sys_user.username` 查询获得。
+
+### 事务处理
+
+文档新增、编辑、删除使用 `@Transactional`。
+
+原因：
+
+- 文档表和标签关系表需要一起更新。
+- 如果标签关系保存失败，不应该留下半成品文档。
+- 删除文档和后续文件处理也需要事务边界。
+
+### 测试结果
+
+已完成以下验证：
+
+- `mvn package` 构建成功。
+- 管理员访问 `/documents` 返回 HTTP 200。
+- 文档元数据新增成功。
+- 文档详情展示成功。
+- 文档元数据编辑成功。
+- 文档逻辑删除成功。
+- 普通用户访问自己的文档成功。
+- 普通用户访问其他用户文档被拒绝。
+
+### 后续衔接
+
+阶段 6 将在当前文档元数据基础上接入真实文件能力：
+
+- Multipart 文件上传。
+- 文件大小校验。
+- 文件类型校验。
+- 唯一文件名。
+- 本地目录存储。
+- 下载时使用原始文件名。
+- 下载前权限校验。

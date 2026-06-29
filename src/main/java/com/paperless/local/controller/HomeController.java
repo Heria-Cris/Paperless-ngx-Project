@@ -1,16 +1,19 @@
 package com.paperless.local.controller;
 
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Objects;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import com.paperless.local.entity.Document;
+import com.paperless.local.entity.DocumentCategory;
+import com.paperless.local.entity.DocumentTag;
 import com.paperless.local.entity.DocumentTagRel;
 import com.paperless.local.service.DocumentCategoryService;
 import com.paperless.local.service.DocumentService;
@@ -19,6 +22,8 @@ import com.paperless.local.service.DocumentTagService;
 
 @Controller
 public class HomeController {
+
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     private final DocumentService documentService;
     private final DocumentCategoryService categoryService;
@@ -37,47 +42,12 @@ public class HomeController {
         this.tagRelService = tagRelService;
     }
 
-    private static final List<DocumentView> DOCUMENTS = List.of(
-            new DocumentView(1999, "Newest Correspondent", "H7_Napoleon_Bonaparte_zadanie", List.of("Another Sample Tag", "Inbox"), "User2", "Invoice Test", "Aug 9, 2023", "Aug 9, 2023", "PDF"),
-            new DocumentView(0, "Test Correspondent 1", "[paperless] test post-owner", List.of("Inbox", "Tag 2"), "Test User", "Invoice Test", "Mar 25, 2023", "Dec 13, 2022", "PDF"),
-            new DocumentView(0, "Correspondent 9", "1 Testing New Title Updated 2", List.of("Another Sample Tag", "Inbox", "TagWithPartial"), "User2", "", "Oct 2, 2022", "Oct 2, 2022", "DOCX"),
-            new DocumentView(112412326, "Newest Correspondent", "Sample100.csv", List.of("Inbox", "Just another tag", "Tag 2"), "User2", "", "Oct 2, 2022", "Oct 2, 2022", "CSV"),
-            new DocumentView(0, "Test Correspondent 1", "UM_PPBE_en_v29", List.of("Another Sample Tag"), "User2", "Invoice Test", "Oct 1, 2022", "Oct 2, 2022", "PDF"),
-            new DocumentView(0, "Correspondent 14", "Review-of-New-York-Federal-Petitions-article", List.of("Partial Tag", "Tag 2", "Test Tag"), "User2", "Invoice Test", "Mar 12, 2022", "Mar 13, 2022", "PDF")
-    );
-
     @GetMapping({"/", "/dashboard"})
     public String dashboard(@RequestParam(name = "denied", required = false) String denied, Model model) {
         prepareApp(model, "dashboard", "Dashboard");
         if (denied != null) {
             model.addAttribute("warning", "当前账号无权访问该管理页面");
         }
-        return "app";
-    }
-
-    @GetMapping("/documents")
-    public String documents(Model model) {
-        prepareApp(model, "documents", "Documents");
-        return "app";
-    }
-
-    @GetMapping("/documents/upload")
-    public String upload(Model model) {
-        prepareApp(model, "upload", "Upload documents");
-        return "app";
-    }
-
-    @GetMapping("/documents/{id}")
-    public String documentDetail(@PathVariable Integer id, Model model) {
-        prepareApp(model, "document-detail", "Document detail");
-        model.addAttribute("selectedDocument", DOCUMENTS.get(Math.floorMod(id, DOCUMENTS.size())));
-        return "app";
-    }
-
-    @GetMapping("/documents/{id}/edit")
-    public String documentEdit(@PathVariable Integer id, Model model) {
-        prepareApp(model, "document-edit", "Edit document");
-        model.addAttribute("selectedDocument", DOCUMENTS.get(Math.floorMod(id, DOCUMENTS.size())));
         return "app";
     }
 
@@ -93,15 +63,16 @@ public class HomeController {
         return "app";
     }
 
-    private void prepareApp(Model model, String activePage, String pageTitle) {
+    public void prepareApp(Model model, String activePage, String pageTitle) {
         List<LookupView> categories = categoryViews();
         List<LookupView> tags = tagViews();
+        List<DocumentView> documents = documentViews();
         model.addAttribute("activePage", activePage);
         model.addAttribute("pageTitle", pageTitle);
-        model.addAttribute("documents", DOCUMENTS);
+        model.addAttribute("documents", documents);
         model.addAttribute("categories", categories);
         model.addAttribute("tags", tags);
-        model.addAttribute("documentTotal", documentService.count());
+        model.addAttribute("documentTotal", documents.size());
         model.addAttribute("inboxTotal", 5);
         model.addAttribute("categoryTotal", categories.size());
         model.addAttribute("tagTotal", tags.size());
@@ -141,16 +112,77 @@ public class HomeController {
                 .toList();
     }
 
+    public DocumentView documentView(Document document) {
+        DocumentCategory category = document.getCategoryId() == null ? null : categoryService.getById(document.getCategoryId());
+        List<DocumentTagRel> relations = tagRelService.list(Wrappers.<DocumentTagRel>lambdaQuery()
+                .eq(DocumentTagRel::getDocumentId, document.getId()));
+        List<Long> tagIds = relations.stream().map(DocumentTagRel::getTagId).toList();
+        List<String> tagNames = tagIds.stream()
+                .map(tagService::getById)
+                .filter(Objects::nonNull)
+                .map(DocumentTag::getName)
+                .toList();
+        String created = document.getUploadedAt() == null ? "" : document.getUploadedAt().format(DATE_FORMATTER);
+        String updated = document.getUpdatedAt() == null ? created : document.getUpdatedAt().format(DATE_FORMATTER);
+        return new DocumentView(
+                document.getId(),
+                document.getId() == null ? 0L : document.getId(),
+                ownerName(document.getUploadUserId()),
+                document.getTitle(),
+                tagNames,
+                ownerName(document.getUploadUserId()),
+                category == null ? "" : category.getName(),
+                category == null ? "" : category.getName(),
+                created,
+                updated,
+                document.getFileType(),
+                document.getDescription(),
+                document.getOriginalFilename(),
+                document.getFileSize(),
+                document.getCategoryId(),
+                tagIds
+        );
+    }
+
+    public List<DocumentView> documentViews() {
+        return documentService.list(Wrappers.<Document>lambdaQuery()
+                        .orderByDesc(Document::getUploadedAt)
+                        .orderByDesc(Document::getId))
+                .stream()
+                .map(this::documentView)
+                .toList();
+    }
+
+    private String ownerName(Long uploadUserId) {
+        if (uploadUserId == null) {
+            return "";
+        }
+        if (uploadUserId == 1L) {
+            return "管理员";
+        }
+        if (uploadUserId == 2L) {
+            return "普通用户";
+        }
+        return "User " + uploadUserId;
+    }
+
     public record DocumentView(
-            int asn,
+            Long id,
+            long asn,
             String correspondent,
             String title,
             List<String> tags,
             String owner,
             String documentType,
+            String categoryName,
             String created,
             String added,
-            String fileType
+            String fileType,
+            String description,
+            String originalFilename,
+            Long fileSize,
+            Long categoryId,
+            List<Long> tagIds
     ) {
     }
 

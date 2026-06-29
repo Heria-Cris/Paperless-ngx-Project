@@ -149,6 +149,7 @@
             <div class="page-title-row">
                 <h1>Documents</h1>
                 <div class="view-actions">
+                    <a class="primary-button" href="/documents/upload">Upload</a>
                     <button>Select ▾</button>
                     <button>☷</button>
                     <button>▦</button>
@@ -156,18 +157,21 @@
                     <button>Views ▾</button>
                 </div>
             </div>
-            <div class="filter-bar">
-                <button>Title & content ▾</button>
-                <input type="search">
-                <button>◆ Tags ▾</button>
-                <button>♙ Correspondent ▾</button>
-                <button>▣ Document type ▾</button>
-                <button>▰ Storage path ▾</button>
-                <button>Created ▾</button>
-                <button>Added ▾</button>
-                <button class="muted-button">× Reset filters</button>
-            </div>
-            <p class="result-count">64 documents</p>
+            <form class="filter-bar" method="get" action="/documents">
+                <button type="button">Title & content ▾</button>
+                <input type="search" name="keyword" th:value="${keyword}" placeholder="文档标题、原始文件名、描述">
+                <select name="tagId">
+                    <option value="">◆ Tags</option>
+                    <option th:each="tag : ${tags}" th:value="${tag.id}" th:text="${tag.name}" th:selected="${selectedTagId != null && selectedTagId == tag.id}">Tag</option>
+                </select>
+                <select name="categoryId">
+                    <option value="">▣ Document type</option>
+                    <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.name}" th:selected="${selectedCategoryId != null && selectedCategoryId == category.id}">Category</option>
+                </select>
+                <button type="submit">Search</button>
+                <a class="outline-button muted-button" href="/documents">× Reset filters</a>
+            </form>
+            <p class="result-count"><span th:text="${documentTotal}">0</span> documents</p>
             <section class="panel table-panel">
                 <table class="data-table documents-table">
                     <thead>
@@ -184,12 +188,12 @@
                     </tr>
                     </thead>
                     <tbody>
-                    <tr th:each="doc, stat : ${documents}">
+                    <tr th:each="doc : ${documents}">
                         <td><input type="checkbox"></td>
                         <td th:text="${doc.asn == 0 ? '' : doc.asn}">1999</td>
                         <td th:text="${doc.correspondent}">Correspondent</td>
                         <td>
-                            <a th:href="@{/documents/{id}(id=${stat.index})}" th:text="${doc.title}">Title</a>
+                            <a th:href="@{/documents/{id}(id=${doc.id})}" th:text="${doc.title}">Title</a>
                             <span th:each="tag : ${doc.tags}" class="tag" th:text="${tag}">Inbox</span>
                         </td>
                         <td th:text="${doc.owner}">User2</td>
@@ -207,16 +211,28 @@
             <div class="page-title-row"><h1>Upload new documents</h1></div>
             <section class="panel form-panel">
                 <div class="drop-zone">
-                    <strong>Drop documents anywhere</strong>
+                    <strong>Metadata first</strong>
                     <span>PDF, Word, Excel, Image, TXT</span>
-                    <button>Browse files</button>
+                    <span>阶段 5 先保存文档元数据，真实文件上传将在阶段 6 接入。</span>
                 </div>
-                <div class="form-grid">
-                    <label>Document title<input placeholder="输入文档标题"></label>
-                    <label>Document type<select><option>Invoice Test</option><option>课程资料</option></select></label>
-                    <label>Tags<input placeholder="重要, 待处理"></label>
-                    <label>Description<textarea placeholder="文档说明"></textarea></label>
-                </div>
+                <form class="form-grid" method="post" action="/documents">
+                    <label>Document title<input name="title" required placeholder="输入文档标题"></label>
+                    <label>Original filename<input name="originalFilename" required placeholder="example.pdf"></label>
+                    <label>File type<input name="fileType" required placeholder="PDF / DOCX / PNG / TXT"></label>
+                    <label>Document type
+                        <select name="categoryId">
+                            <option value="">未分类</option>
+                            <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.name}">课程资料</option>
+                        </select>
+                    </label>
+                    <label class="wide-field">Tags
+                        <select name="tagIds" multiple>
+                            <option th:each="tag : ${tags}" th:value="${tag.id}" th:text="${tag.name}">重要</option>
+                        </select>
+                    </label>
+                    <label class="wide-field">Description<textarea name="description" placeholder="文档说明"></textarea></label>
+                    <button class="primary-button" type="submit">Save metadata</button>
+                </form>
             </section>
         </section>
 
@@ -225,22 +241,43 @@
                 <h1 th:text="${activePage == 'document-edit' ? 'Edit document' : 'Document detail'}">Document detail</h1>
                 <div class="view-actions">
                     <a class="outline-button" href="/documents">Back</a>
-                    <a class="outline-button" th:href="@{/documents/0/edit}">Edit</a>
+                    <a class="outline-button" th:if="${activePage == 'document-detail'}" th:href="@{/documents/{id}/edit(id=${selectedDocument.id})}">Edit</a>
+                    <form th:if="${activePage == 'document-detail'}" method="post" th:action="@{/documents/{id}/delete(id=${selectedDocument.id})}">
+                        <button type="submit">Delete</button>
+                    </form>
                 </div>
             </div>
             <section class="detail-layout">
                 <div class="document-preview">
                     <span th:text="${selectedDocument.fileType}">PDF</span>
                     <strong th:text="${selectedDocument.title}">Document</strong>
-                    <p>Preview placeholder</p>
+                    <p th:text="${selectedDocument.originalFilename}">Preview placeholder</p>
                 </div>
-                <div class="panel form-panel">
-                    <label>Title<input th:value="${selectedDocument.title}"></label>
-                    <label>Correspondent<input th:value="${selectedDocument.correspondent}"></label>
-                    <label>Document type<input th:value="${selectedDocument.documentType}"></label>
-                    <label>Tags<input th:value="${#strings.listJoin(selectedDocument.tags, ', ')}"></label>
-                    <label>Description<textarea>阶段 1 静态详情与编辑表单。</textarea></label>
-                    <button class="primary-button">Save</button>
+                <form th:if="${activePage == 'document-edit'}" class="panel form-panel" method="post" th:action="@{/documents/{id}/update(id=${selectedDocument.id})}">
+                    <label>Title<input name="title" required th:value="${selectedDocument.title}"></label>
+                    <label>Original filename<input name="originalFilename" required th:value="${selectedDocument.originalFilename}"></label>
+                    <label>File type<input name="fileType" required th:value="${selectedDocument.fileType}"></label>
+                    <label>Document type
+                        <select name="categoryId">
+                            <option value="">未分类</option>
+                            <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.name}" th:selected="${selectedDocument.categoryId != null && selectedDocument.categoryId == category.id}">课程资料</option>
+                        </select>
+                    </label>
+                    <label>Tags
+                        <select name="tagIds" multiple>
+                            <option th:each="tag : ${tags}" th:value="${tag.id}" th:text="${tag.name}" th:selected="${selectedDocument.tagIds.contains(tag.id)}">重要</option>
+                        </select>
+                    </label>
+                    <label>Description<textarea name="description" th:text="${selectedDocument.description}">文档说明</textarea></label>
+                    <button class="primary-button" type="submit">Save</button>
+                </form>
+                <div th:if="${activePage == 'document-detail'}" class="panel form-panel">
+                    <label>Title<input readonly th:value="${selectedDocument.title}"></label>
+                    <label>Original filename<input readonly th:value="${selectedDocument.originalFilename}"></label>
+                    <label>File type<input readonly th:value="${selectedDocument.fileType}"></label>
+                    <label>Document type<input readonly th:value="${selectedDocument.documentType}"></label>
+                    <label>Tags<input readonly th:value="${#strings.listJoin(selectedDocument.tags, ', ')}"></label>
+                    <label>Description<textarea readonly th:text="${selectedDocument.description}">文档说明</textarea></label>
                 </div>
             </section>
         </section>
