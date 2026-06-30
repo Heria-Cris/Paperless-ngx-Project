@@ -1130,3 +1130,47 @@ source docs/database/demo-data.sql;
 - 后续本地浏览器测试重点包括注册、登录、个人资料修改、密码修改、管理员创建用户、禁用用户、重置密码和删除无文档用户。
 
 已执行 `mvn package`，构建成功。
+
+## 阶段 8B：用户体验与文档展示优化
+
+阶段 8B 的目标是在已完成用户模块基础上，补齐忘记密码、头像本地上传和个人中心布局优化，同时修正文档列表上传人和所有者显示逻辑。
+
+### 忘记密码
+
+新增路由：
+
+- `GET /forgot-password`：展示忘记密码表单。
+- `POST /forgot-password`：根据用户名和邮箱校验用户身份，校验通过后重置密码。
+
+当前实现适合本地课程演示：用户输入账号、注册邮箱、新密码和确认密码。系统校验账号与邮箱匹配且账号启用后，将新密码以 SHA-256 哈希写回 `sys_user.password_hash`。
+
+### 头像本地上传
+
+个人中心资料表单改为 `multipart/form-data`，新增 `avatarFile` 文件字段。用户可以继续填写头像地址，也可以选择本地图片文件；如果上传了本地文件，系统优先使用本地上传头像。
+
+头像存储规则：
+
+- 存储目录：`uploads/avatars/user_{userId}/`。
+- 访问地址：`/avatars/user_{userId}/{filename}`。
+- 支持类型：PNG、JPG、JPEG、GIF、WEBP、SVG。
+- 大小限制：2MB。
+
+头像读取通过 `UserController.avatar(...)` 返回本地文件资源，避免把运行期上传文件写入 `src/main/resources/static`。
+
+### 个人中心布局
+
+个人中心页面拆分为：
+
+- 资料卡：展示头像、昵称、账号，并提供资料编辑表单。
+- 密码卡：单独处理原密码、新密码、确认新密码。
+
+CSS 新增 `profile-card`、`password-card`、`profile-form`、`password-form`、`compact-submit` 等样式，解决保存资料和更新密码按钮被网格撑得过大的问题。
+
+### 文档列表昵称展示
+
+`HomeController.ownerName(...)` 不再使用固定的 `User 3` 或硬编码管理员名称，而是根据 `document.uploadUserId` 查询 `sys_user`，优先展示 `nickname`。因此文档列表中的“上传人”和“所有者”会显示用户昵称。
+
+### 本阶段验证
+
+- `mvn package` 构建成功。
+- 浏览器中应重点验证：忘记密码、个人中心头像上传、个人中心按钮布局、文档列表昵称显示。

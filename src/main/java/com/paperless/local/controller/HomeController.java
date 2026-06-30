@@ -190,11 +190,9 @@ public class HomeController {
         if (uploadUserId == null) {
             return "";
         }
-        if (uploadUserId == 1L) {
-            return "管理员";
-        }
-        if (uploadUserId == 2L) {
-            return "普通用户";
+        User user = userService.getById(uploadUserId);
+        if (user != null && user.getNickname() != null && !user.getNickname().isBlank()) {
+            return user.getNickname();
         }
         return "User " + uploadUserId;
     }

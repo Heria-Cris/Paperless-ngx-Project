@@ -1,13 +1,28 @@
 package com.paperless.local.controller;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 
 import jakarta.servlet.http.HttpServletRequest;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
@@ -15,6 +30,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.paperless.local.entity.User;
@@ -28,17 +44,26 @@ import com.paperless.local.web.SessionKeys;
 public class UserController {
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final Set<String> AVATAR_EXTENSIONS = Set.of("png", "jpg", "jpeg", "gif", "webp", "svg");
 
     private final UserService userService;
     private final AuthService authService;
     private final DocumentService documentService;
     private final HomeController homeController;
+    private final Path avatarRoot;
 
-    public UserController(UserService userService, AuthService authService, DocumentService documentService, HomeController homeController) {
+    public UserController(
+            UserService userService,
+            AuthService authService,
+            DocumentService documentService,
+            HomeController homeController,
+            @Value("${app.upload-dir:uploads}") String uploadDir
+    ) {
         this.userService = userService;
         this.authService = authService;
         this.documentService = documentService;
         this.homeController = homeController;
+        this.avatarRoot = Paths.get(uploadDir).resolve("avatars").toAbsolutePath().normalize();
     }
 
     @GetMapping("/register")
@@ -91,6 +116,47 @@ public class UserController {
         return "redirect:/login";
     }
 
+    @GetMapping("/forgot-password")
+    public String forgotPassword(Model model) {
+        model.addAttribute("pageTitle", "忘记密码");
+        return "login";
+    }
+
+    @PostMapping("/forgot-password")
+    public String resetForgottenPassword(
+            @RequestParam String username,
+            @RequestParam String email,
+            @RequestParam String newPassword,
+            @RequestParam String confirmPassword,
+            RedirectAttributes redirectAttributes
+    ) {
+        if (isBlank(username) || isBlank(email) || isBlank(newPassword) || isBlank(confirmPassword)) {
+            redirectAttributes.addFlashAttribute("error", "账号、邮箱和新密码不能为空");
+            return "redirect:/forgot-password";
+        }
+        if (!newPassword.equals(confirmPassword)) {
+            redirectAttributes.addFlashAttribute("error", "两次输入的新密码不一致");
+            return "redirect:/forgot-password";
+        }
+        if (newPassword.length() < 6) {
+            redirectAttributes.addFlashAttribute("error", "新密码长度至少 6 位");
+            return "redirect:/forgot-password";
+        }
+
+        User user = userService.getOne(Wrappers.<User>lambdaQuery()
+                .eq(User::getUsername, trim(username))
+                .eq(User::getEmail, trim(email)), false);
+        if (user == null || user.getStatus() == null || user.getStatus() != 1) {
+            redirectAttributes.addFlashAttribute("error", "账号或邮箱不匹配，或账号已被禁用");
+            return "redirect:/forgot-password";
+        }
+        user.setPasswordHash(authService.hashPassword(newPassword));
+        user.setUpdatedAt(LocalDateTime.now());
+        userService.updateById(user);
+        redirectAttributes.addFlashAttribute("success", "密码已重置，请使用新密码登录");
+        return "redirect:/login";
+    }
+
     @GetMapping("/profile")
     public String profile(HttpServletRequest request, Model model) {
         LoginUser currentUser = currentUser(request);
@@ -103,6 +169,7 @@ public class UserController {
     public String updateProfile(
             @RequestParam String nickname,
             @RequestParam(required = false) String avatarUrl,
+            @RequestParam(required = false) MultipartFile avatarFile,
             @RequestParam(required = false) String email,
             @RequestParam(required = false) String phone,
             @RequestParam(required = false) String bio,
@@ -120,7 +187,17 @@ public class UserController {
             return "redirect:/profile";
         }
         user.setNickname(trim(nickname));
-        user.setAvatarUrl(isBlank(avatarUrl) ? defaultAvatar(nickname) : trim(avatarUrl));
+        try {
+            String uploadedAvatarUrl = storeAvatar(avatarFile, user.getId());
+            if (!isBlank(uploadedAvatarUrl)) {
+                user.setAvatarUrl(uploadedAvatarUrl);
+            } else {
+                user.setAvatarUrl(isBlank(avatarUrl) ? defaultAvatar(nickname) : trim(avatarUrl));
+            }
+        } catch (IllegalArgumentException | IOException ex) {
+            redirectAttributes.addFlashAttribute("error", ex.getMessage());
+            return "redirect:/profile";
+        }
         user.setEmail(trim(email));
         user.setPhone(trim(phone));
         user.setBio(trim(bio));
@@ -129,6 +206,21 @@ public class UserController {
         request.getSession().setAttribute(SessionKeys.LOGIN_USER, authService.toLoginUser(user));
         redirectAttributes.addFlashAttribute("success", "个人信息已更新");
         return "redirect:/profile";
+    }
+
+    @GetMapping("/avatars/{userFolder}/{filename:.+}")
+    public ResponseEntity<Resource> avatar(@PathVariable String userFolder, @PathVariable String filename) throws IOException {
+        Path filePath = avatarRoot.resolve(userFolder).resolve(filename).normalize();
+        if (!filePath.startsWith(avatarRoot) || !Files.exists(filePath) || !Files.isRegularFile(filePath)) {
+            return ResponseEntity.notFound().build();
+        }
+        Resource resource = new UrlResource(filePath.toUri());
+        ContentDisposition contentDisposition = ContentDisposition.inline()
+                .filename(filename, StandardCharsets.UTF_8)
+                .build();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
+                .body(resource);
     }
 
     @PostMapping("/profile/password")
@@ -328,6 +420,40 @@ public class UserController {
 
     private String defaultAvatar(String nickname) {
         return "/images/default-avatar.svg";
+    }
+
+    private String storeAvatar(MultipartFile avatarFile, Long userId) throws IOException {
+        if (avatarFile == null || avatarFile.isEmpty()) {
+            return "";
+        }
+        if (avatarFile.getSize() > 2 * 1024 * 1024) {
+            throw new IllegalArgumentException("头像文件不能超过 2MB");
+        }
+        String originalFilename = avatarFile.getOriginalFilename() == null ? "" : avatarFile.getOriginalFilename();
+        String extension = extensionOf(originalFilename);
+        if (!AVATAR_EXTENSIONS.contains(extension)) {
+            throw new IllegalArgumentException("头像仅支持 PNG、JPG、GIF、WEBP、SVG");
+        }
+        Path userDirectory = avatarRoot.resolve("user_" + userId).normalize();
+        if (!userDirectory.startsWith(avatarRoot)) {
+            throw new IllegalArgumentException("头像存储路径不合法");
+        }
+        Files.createDirectories(userDirectory);
+        String storedFilename = UUID.randomUUID() + "." + extension;
+        Path target = userDirectory.resolve(storedFilename).normalize();
+        if (!target.startsWith(avatarRoot)) {
+            throw new IllegalArgumentException("头像存储路径不合法");
+        }
+        avatarFile.transferTo(target);
+        return "/avatars/user_" + userId + "/" + storedFilename;
+    }
+
+    private String extensionOf(String filename) {
+        int dotIndex = filename.lastIndexOf('.');
+        if (dotIndex < 0 || dotIndex == filename.length() - 1) {
+            throw new IllegalArgumentException("头像文件必须包含扩展名");
+        }
+        return filename.substring(dotIndex + 1).toLowerCase(Locale.ROOT);
     }
 
     private String trim(String value) {
