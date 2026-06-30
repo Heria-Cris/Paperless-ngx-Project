@@ -49,15 +49,23 @@ CREATE TABLE IF NOT EXISTS document (
   upload_user_id BIGINT NOT NULL COMMENT '上传人ID',
   description VARCHAR(1000) NULL COMMENT '文档描述',
   deleted TINYINT NOT NULL DEFAULT 0 COMMENT '0正常 1逻辑删除',
+  deleted_at DATETIME NULL COMMENT '移入回收站时间',
+  review_status VARCHAR(20) NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING / APPROVED / REJECTED',
+  review_comment VARCHAR(500) NULL COMMENT '审查意见',
+  reviewed_by BIGINT NULL COMMENT '审查人ID',
+  reviewed_at DATETIME NULL COMMENT '审查时间',
   uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_document_user_deleted (upload_user_id, deleted),
+  INDEX idx_document_review_status (review_status),
+  INDEX idx_document_deleted_at (deleted_at),
   INDEX idx_document_category (category_id),
   INDEX idx_document_file_type (file_type),
   INDEX idx_document_uploaded_at (uploaded_at),
   INDEX idx_document_title (title),
   CONSTRAINT fk_document_category FOREIGN KEY (category_id) REFERENCES document_category(id),
-  CONSTRAINT fk_document_user FOREIGN KEY (upload_user_id) REFERENCES sys_user(id)
+  CONSTRAINT fk_document_user FOREIGN KEY (upload_user_id) REFERENCES sys_user(id),
+  CONSTRAINT fk_document_review_user FOREIGN KEY (reviewed_by) REFERENCES sys_user(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='文档元数据表';
 
 CREATE TABLE IF NOT EXISTS document_tag_rel (

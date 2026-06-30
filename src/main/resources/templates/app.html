@@ -42,10 +42,12 @@
             <a th:if="${currentUser.admin}" th:classappend="${activePage == 'tags'} ? ' active'" href="/tags">◇ 标签管理</a>
             <a th:if="${currentUser.admin}" th:classappend="${activePage == 'categories'} ? ' active'" href="/categories"># 分类管理</a>
             <a href="/documents/upload">▤ 上传文档</a>
+            <a th:classappend="${activePage == 'recycle-bin'} ? ' active'" href="/recycle-bin">♲ 回收站</a>
         </nav>
         <h3>系统管理</h3>
         <nav th:if="${currentUser.admin}">
             <a href="/dashboard">⚙ 系统设置</a>
+            <a th:classappend="${activePage == 'reviews'} ? ' active'" href="/reviews">☑ 文件审查</a>
             <a th:classappend="${activePage == 'users'} ? ' active'" href="/users">♧ 用户管理</a>
             <a th:classappend="${activePage == 'file-tasks'} ? ' active'" href="/file-tasks">☰ 文件任务 <span class="count-badge" th:text="${pendingTaskTotal}">0</span></a>
             <a th:classappend="${activePage == 'logs'} ? ' active'" href="/logs">☰ 操作日志</a>
@@ -151,15 +153,14 @@
                 <h1 th:text="${documentPageTitle == null ? '文档管理' : documentPageTitle}">文档管理</h1>
                 <div class="view-actions">
                     <a class="primary-button" href="/documents/upload">上传</a>
-                    <button>选择 ▾</button>
-                    <button>☷</button>
-                    <button>▦</button>
-                    <button>排序 ▾</button>
-                    <button>视图 ▾</button>
+                    <button form="bulk-delete-form" type="submit">批量删除</button>
+                    <a class="outline-button" th:href="@{/documents(view=${selectedView}, keyword=${keyword}, categoryId=${selectedCategoryId}, tagId=${selectedTagId}, sort=${selectedSort}, display='list', size=${pageSize})}">☷ 列表</a>
+                    <a class="outline-button" th:href="@{/documents(view=${selectedView}, keyword=${keyword}, categoryId=${selectedCategoryId}, tagId=${selectedTagId}, sort=${selectedSort}, display='grid', size=${pageSize})}">▦ 卡片</a>
                 </div>
             </div>
             <form class="filter-bar" method="get" action="/documents">
                 <input type="hidden" name="view" th:value="${selectedView}">
+                <input type="hidden" name="display" th:value="${selectedDisplay}">
                 <button type="button">标题与描述 ▾</button>
                 <input type="search" name="keyword" th:value="${keyword}" placeholder="文档标题、原始文件名、描述">
                 <select name="tagId">
@@ -176,6 +177,12 @@
                     <option value="20" th:selected="${pageSize == 20}">每页 20 条</option>
                     <option value="50" th:selected="${pageSize == 50}">每页 50 条</option>
                 </select>
+                <select name="sort">
+                    <option value="created_desc" th:selected="${selectedSort == 'created_desc'}">创建时间由新到旧</option>
+                    <option value="updated_desc" th:selected="${selectedSort == 'updated_desc'}">更新时间由新到旧</option>
+                    <option value="title_asc" th:selected="${selectedSort == 'title_asc'}">标题 A-Z</option>
+                    <option value="size_desc" th:selected="${selectedSort == 'size_desc'}">文件大小由大到小</option>
+                </select>
                 <button type="submit">搜索</button>
                 <a class="outline-button muted-button" href="/documents">× 重置筛选</a>
             </form>
@@ -183,15 +190,17 @@
                 <p class="result-count">共 <span th:text="${resultTotal}">0</span> 个文档</p>
                 <p class="page-indicator">第 <span th:text="${page}">1</span> / <span th:text="${totalPages}">1</span> 页</p>
             </div>
-            <section class="panel table-panel">
+            <form id="bulk-delete-form" method="post" action="/documents/bulk-delete">
+            <section class="panel table-panel" th:if="${selectedDisplay != 'grid'}">
                 <table class="data-table documents-table">
                     <thead>
                     <tr>
-                        <th></th>
+                        <th><input type="checkbox" onclick="document.querySelectorAll('.document-check').forEach(item => item.checked = this.checked)"></th>
                         <th>ASN</th>
                         <th>上传人</th>
                         <th>标题</th>
                         <th>所有者</th>
+                        <th>状态</th>
                         <th>备注</th>
                         <th>分类</th>
                         <th>创建时间 ↑</th>
@@ -200,14 +209,16 @@
                     </thead>
                     <tbody>
                     <tr th:each="doc : ${documents}">
-                        <td><input type="checkbox"></td>
+                        <td><input class="document-check" type="checkbox" name="documentIds" th:value="${doc.id}"></td>
                         <td th:text="${doc.asn == 0 ? '' : doc.asn}">1999</td>
                         <td th:text="${doc.correspondent}">Correspondent</td>
                         <td>
                             <a th:href="@{/documents/{id}(id=${doc.id})}" th:text="${doc.title}">文档标题</a>
                             <span th:each="tag : ${doc.tags}" class="tag" th:style="'background:' + ${tag.color}" th:text="${tag.name}">Inbox</span>
+                            <small class="review-comment" th:if="${doc.reviewComment != null && !doc.reviewComment.isBlank()}" th:text="${doc.reviewComment}">审查意见</small>
                         </td>
                         <td th:text="${doc.owner}">User2</td>
+                        <td><span class="status-pill" th:classappend="${doc.reviewStatus == 'APPROVED'} ? ' enabled' : ' disabled'" th:text="${doc.reviewStatusText}">审查中</span></td>
                         <td><span class="note-pill">▤ 1</span></td>
                         <td th:text="${doc.documentType}">Invoice Test</td>
                         <td th:text="${doc.created}">Aug 9, 2023</td>
@@ -216,14 +227,29 @@
                     </tbody>
                 </table>
             </section>
+            <section class="document-grid" th:if="${selectedDisplay == 'grid'}">
+                <article class="panel document-card" th:each="doc : ${documents}">
+                    <label class="card-check"><input class="document-check" type="checkbox" name="documentIds" th:value="${doc.id}"> 选择</label>
+                    <a th:href="@{/documents/{id}(id=${doc.id})}">
+                        <strong th:text="${doc.title}">文档标题</strong>
+                        <span th:text="${doc.originalFilename}">file.pdf</span>
+                    </a>
+                    <div>
+                        <span class="status-pill" th:classappend="${doc.reviewStatus == 'APPROVED'} ? ' enabled' : ' disabled'" th:text="${doc.reviewStatusText}">审查中</span>
+                        <span class="tag" th:each="tag : ${doc.tags}" th:style="'background:' + ${tag.color}" th:text="${tag.name}">标签</span>
+                    </div>
+                    <small th:text="${doc.owner + ' / ' + doc.created}">管理员 / 2026-06-30</small>
+                </article>
+            </section>
+            </form>
             <nav class="pagination" th:if="${totalPages > 1}">
                 <a class="outline-button"
                    th:classappend="${!hasPrevious} ? ' disabled'"
-                   th:href="@{/documents(view=${selectedView}, keyword=${keyword}, categoryId=${selectedCategoryId}, tagId=${selectedTagId}, size=${pageSize}, page=${previousPage})}">上一页</a>
+                   th:href="@{/documents(view=${selectedView}, keyword=${keyword}, categoryId=${selectedCategoryId}, tagId=${selectedTagId}, sort=${selectedSort}, display=${selectedDisplay}, size=${pageSize}, page=${previousPage})}">上一页</a>
                 <span><strong th:text="${page}">1</strong> / <span th:text="${totalPages}">1</span></span>
                 <a class="outline-button"
                    th:classappend="${!hasNext} ? ' disabled'"
-                   th:href="@{/documents(view=${selectedView}, keyword=${keyword}, categoryId=${selectedCategoryId}, tagId=${selectedTagId}, size=${pageSize}, page=${nextPage})}">下一页</a>
+                   th:href="@{/documents(view=${selectedView}, keyword=${keyword}, categoryId=${selectedCategoryId}, tagId=${selectedTagId}, sort=${selectedSort}, display=${selectedDisplay}, size=${pageSize}, page=${nextPage})}">下一页</a>
             </nav>
         </section>
 
@@ -298,8 +324,7 @@
                 <div class="drop-zone">
                     <strong>选择一个文档文件</strong>
                     <span>支持 PDF、Word、Excel、图片、TXT</span>
-                    <span>阶段 6 已接入真实文件上传，文件会保存到本地 uploads 目录。</span>
-                    <span>阶段 5 先保存文档元数据，真实文件上传将在阶段 6 接入。</span>
+                    <span>普通用户上传后进入审查中，管理员通过后才会正常展示。</span>
                 </div>
                 <form class="form-grid" method="post" action="/documents" enctype="multipart/form-data">
                     <label>文档标题<input name="title" required placeholder="输入文档标题"></label>
@@ -321,6 +346,100 @@
             </section>
         </section>
 
+        <section th:if="${activePage == 'reviews'}">
+            <div class="page-title-row">
+                <h1>文件审查</h1>
+                <p>待审查 <span th:text="${reviewTotal}">0</span> 个</p>
+            </div>
+            <section class="panel table-panel">
+                <table class="data-table documents-table">
+                    <thead>
+                    <tr>
+                        <th>ASN</th>
+                        <th>上传人</th>
+                        <th>标题</th>
+                        <th>分类</th>
+                        <th>上传时间</th>
+                        <th>操作</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="doc : ${reviewDocuments}">
+                        <td th:text="${doc.asn}">1</td>
+                        <td th:text="${doc.owner}">上传人</td>
+                        <td>
+                            <a th:href="@{/documents/{id}(id=${doc.id})}" th:text="${doc.title}">文档标题</a>
+                            <span th:each="tag : ${doc.tags}" class="tag" th:style="'background:' + ${tag.color}" th:text="${tag.name}">标签</span>
+                        </td>
+                        <td th:text="${doc.documentType}">分类</td>
+                        <td th:text="${doc.created}">2026-06-30</td>
+                        <td>
+                            <div class="review-actions">
+                                <form method="post" th:action="@{/reviews/{id}/approve(id=${doc.id})}">
+                                    <button type="submit">通过</button>
+                                </form>
+                                <form method="post" th:action="@{/reviews/{id}/reject(id=${doc.id})}">
+                                    <input name="reviewComment" placeholder="打回原因">
+                                    <button type="submit">打回</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </section>
+        </section>
+
+        <section th:if="${activePage == 'recycle-bin'}">
+            <div class="page-title-row">
+                <h1>回收站</h1>
+                <p>共 <span th:text="${recycleTotal}">0</span> 个文档，删除后 30 天内可恢复</p>
+                <div class="view-actions">
+                    <button form="recycle-bulk-form" formaction="/recycle-bin/bulk-restore" type="submit">批量恢复</button>
+                    <button form="recycle-bulk-form" formaction="/recycle-bin/bulk-purge" type="submit">批量删除</button>
+                    <form method="post" action="/recycle-bin/restore-all">
+                        <button type="submit">一键恢复</button>
+                    </form>
+                    <form method="post" action="/recycle-bin/empty">
+                        <button type="submit">一键清空</button>
+                    </form>
+                </div>
+            </div>
+            <form id="recycle-bulk-form" method="post">
+            <section class="panel table-panel">
+                <table class="data-table documents-table">
+                    <thead>
+                    <tr>
+                        <th><input type="checkbox" onclick="document.querySelectorAll('.recycle-check').forEach(item => item.checked = this.checked)"></th>
+                        <th>ASN</th>
+                        <th>标题</th>
+                        <th>所有者</th>
+                        <th>删除时间</th>
+                        <th>清理倒计时</th>
+                        <th>操作</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="item : ${recycleDocuments}">
+                        <td><input class="recycle-check" type="checkbox" name="documentIds" th:value="${item.document.id}"></td>
+                        <td th:text="${item.document.asn}">1</td>
+                        <td th:text="${item.document.title}">文档标题</td>
+                        <td th:text="${item.document.owner}">所有者</td>
+                        <td th:text="${item.document.deletedAt}">2026-06-30 10:00</td>
+                        <td><span class="status-pill disabled" th:text="${item.countdown}">剩余 30 天</span></td>
+                        <td>
+                            <div class="row-actions">
+                                <button type="submit" th:formaction="@{/recycle-bin/{id}/restore(id=${item.document.id})}">恢复</button>
+                                <button type="submit" th:formaction="@{/recycle-bin/{id}/purge(id=${item.document.id})}">彻底删除</button>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </section>
+            </form>
+        </section>
+
         <section th:if="${activePage == 'document-detail' || activePage == 'document-edit'}">
             <div class="page-title-row">
                 <h1 th:text="${activePage == 'document-edit' ? '编辑文档' : '文档详情'}">文档详情</h1>
@@ -335,9 +454,13 @@
             </div>
             <section class="detail-layout">
                 <div class="document-preview">
-                    <span th:text="${selectedDocument.fileType}">PDF</span>
-                    <strong th:text="${selectedDocument.title}">文档</strong>
-                    <p th:text="${selectedDocument.originalFilename}">预览占位</p>
+                    <img th:if="${previewMode == 'image'}" th:src="@{/documents/{id}/preview(id=${selectedDocument.id})}" alt="文档预览">
+                    <iframe th:if="${previewMode == 'frame'}" th:src="@{/documents/{id}/preview(id=${selectedDocument.id})}" title="文档预览"></iframe>
+                    <div th:if="${previewMode == 'placeholder'}" class="preview-placeholder">
+                        <span th:text="${selectedDocument.fileType}">PDF</span>
+                        <strong th:text="${selectedDocument.title}">文档</strong>
+                        <p th:text="${selectedDocument.originalFilename}">暂不支持预览</p>
+                    </div>
                 </div>
                 <form th:if="${activePage == 'document-edit'}" class="panel form-panel" method="post" th:action="@{/documents/{id}/update(id=${selectedDocument.id})}">
                     <label>标题<input name="title" required th:value="${selectedDocument.title}"></label>
@@ -362,6 +485,8 @@
                     <label>原始文件名<input readonly th:value="${selectedDocument.originalFilename}"></label>
                     <label>文件类型<input readonly th:value="${selectedDocument.fileType}"></label>
                     <label>文件大小<input readonly th:value="${selectedDocument.fileSize == null ? '0 字节' : selectedDocument.fileSize + ' 字节'}"></label>
+                    <label>审查状态<input readonly th:value="${selectedDocument.reviewStatusText}"></label>
+                    <label th:if="${selectedDocument.reviewComment != null && !selectedDocument.reviewComment.isBlank()}">审查意见<textarea readonly th:text="${selectedDocument.reviewComment}">审查意见</textarea></label>
                     <label>文档分类<input readonly th:value="${selectedDocument.documentType}"></label>
                     <label>标签<input readonly th:value="${#strings.listJoin(selectedDocument.tags.![name], ', ')}"></label>
                     <label>说明<textarea readonly th:text="${selectedDocument.description}">文档说明</textarea></label>

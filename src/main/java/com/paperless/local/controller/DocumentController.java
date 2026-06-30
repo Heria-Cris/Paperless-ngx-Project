@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,6 +17,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
@@ -80,13 +82,15 @@ public class DocumentController {
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) Long tagId,
             @RequestParam(defaultValue = "all") String view,
+            @RequestParam(defaultValue = "created_desc") String sort,
+            @RequestParam(defaultValue = "list") String display,
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer size,
             HttpServletRequest request,
             Model model
     ) {
         homeController.prepareApp(model, "documents", "文档管理", currentUser(request));
-        List<HomeController.DocumentView> filtered = filterDocuments(keyword, categoryId, tagId, view, currentUser(request));
+        List<HomeController.DocumentView> filtered = filterDocuments(keyword, categoryId, tagId, view, sort, currentUser(request));
         int pageSize = normalizePageSize(size);
         int totalPages = Math.max(1, (int) Math.ceil(filtered.size() / (double) pageSize));
         int currentPage = Math.min(Math.max(1, page), totalPages);
@@ -101,6 +105,8 @@ public class DocumentController {
         model.addAttribute("selectedCategoryId", categoryId);
         model.addAttribute("selectedTagId", tagId);
         model.addAttribute("selectedView", normalizeView(view));
+        model.addAttribute("selectedSort", normalizeSort(sort));
+        model.addAttribute("selectedDisplay", normalizeDisplay(display));
         model.addAttribute("documentPageTitle", "recent".equals(normalizeView(view)) ? "最近添加" : "文档管理");
         model.addAttribute("page", currentPage);
         model.addAttribute("pageSize", pageSize);
@@ -151,6 +157,12 @@ public class DocumentController {
             document.setStoredFilename(storedFile.storedFilename());
             document.setStoragePath(storedFile.storagePath());
             document.setDeleted(0);
+            document.setReviewStatus(currentUser(request).isAdmin() ? "APPROVED" : "PENDING");
+            document.setReviewComment("");
+            if (currentUser(request).isAdmin()) {
+                document.setReviewedBy(userId);
+                document.setReviewedAt(LocalDateTime.now());
+            }
             document.setUploadedAt(LocalDateTime.now());
             document.setUpdatedAt(LocalDateTime.now());
             documentService.save(document);
@@ -158,7 +170,7 @@ public class DocumentController {
             createPendingTaskIfNeeded(document.getId(), userId, safeTagIds(tagIds));
             operationLogService.record(currentUser(request), "UPLOAD_DOCUMENT", "DOCUMENT", document.getId(), request.getRemoteAddr(), "SUCCESS");
 
-            redirectAttributes.addFlashAttribute("success", "文件上传成功");
+            redirectAttributes.addFlashAttribute("success", currentUser(request).isAdmin() ? "文件上传成功" : "文件上传成功，等待管理员审查");
             return "redirect:/documents/" + document.getId();
         } catch (IllegalArgumentException ex) {
             redirectAttributes.addFlashAttribute("error", ex.getMessage());
@@ -170,6 +182,64 @@ public class DocumentController {
             redirectAttributes.addFlashAttribute("error", "文件上传失败，请检查文件后重试");
         }
         return "redirect:/documents/upload";
+    }
+
+    @GetMapping("/reviews")
+    public String reviews(HttpServletRequest request, Model model) {
+        LoginUser currentUser = currentUser(request);
+        homeController.prepareApp(model, "reviews", "文件审查", currentUser);
+        List<HomeController.DocumentView> reviewDocuments = documentService.list(Wrappers.<Document>lambdaQuery()
+                        .eq(Document::getDeleted, 0)
+                        .eq(Document::getReviewStatus, "PENDING")
+                        .orderByAsc(Document::getUploadedAt)
+                        .orderByAsc(Document::getId))
+                .stream()
+                .map(homeController::documentView)
+                .toList();
+        model.addAttribute("reviewDocuments", reviewDocuments);
+        model.addAttribute("reviewTotal", reviewDocuments.size());
+        return "app";
+    }
+
+    @PostMapping("/reviews/{id}/approve")
+    public String approveReview(@PathVariable Long id, HttpServletRequest request, RedirectAttributes redirectAttributes) {
+        Document document = documentService.getById(id);
+        if (document == null || deleted(document)) {
+            redirectAttributes.addFlashAttribute("error", "文档不存在或已删除");
+            return "redirect:/reviews";
+        }
+        document.setReviewStatus("APPROVED");
+        document.setReviewComment("");
+        document.setReviewedBy(currentUser(request).id());
+        document.setReviewedAt(LocalDateTime.now());
+        document.setUpdatedAt(LocalDateTime.now());
+        documentService.updateById(document);
+        operationLogService.record(currentUser(request), "APPROVE_DOCUMENT", "DOCUMENT", id, request.getRemoteAddr(), "SUCCESS");
+        redirectAttributes.addFlashAttribute("success", "文档审查已通过");
+        return "redirect:/reviews";
+    }
+
+    @PostMapping("/reviews/{id}/reject")
+    public String rejectReview(
+            @PathVariable Long id,
+            @RequestParam(required = false) String reviewComment,
+            HttpServletRequest request,
+            RedirectAttributes redirectAttributes
+    ) {
+        Document document = documentService.getById(id);
+        if (document == null || deleted(document)) {
+            redirectAttributes.addFlashAttribute("error", "文档不存在或已删除");
+            return "redirect:/reviews";
+        }
+        document.setReviewStatus("REJECTED");
+        document.setReviewComment(isBlank(reviewComment) ? "管理员打回，请修改后重新提交" : reviewComment.trim());
+        document.setReviewedBy(currentUser(request).id());
+        document.setReviewedAt(LocalDateTime.now());
+        document.setUpdatedAt(LocalDateTime.now());
+        documentService.updateById(document);
+        operationLogService.record(currentUser(request), "REJECT_DOCUMENT", "DOCUMENT", id, request.getRemoteAddr(), "SUCCESS");
+        redirectAttributes.addFlashAttribute("success", "文档已打回");
+        return "redirect:/reviews";
     }
 
     @GetMapping("/documents/{id}/download")
@@ -197,6 +267,27 @@ public class DocumentController {
                 .body(resource);
     }
 
+    @GetMapping("/documents/{id}/preview")
+    public ResponseEntity<Resource> preview(@PathVariable Long id, HttpServletRequest request) throws Exception {
+        Optional<Document> document = findAccessibleDocument(id, currentUser(request));
+        if (document.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        Document current = document.get();
+        Path filePath = fileStorageService.resolve(current.getStoragePath());
+        if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
+            return ResponseEntity.notFound().build();
+        }
+        Resource resource = new UrlResource(filePath.toUri());
+        ContentDisposition contentDisposition = ContentDisposition.inline()
+                .filename(current.getOriginalFilename(), StandardCharsets.UTF_8)
+                .build();
+        return ResponseEntity.ok()
+                .contentType(previewMediaType(current.getFileType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
+                .body(resource);
+    }
+
     @GetMapping("/documents/{id}")
     public String documentDetail(@PathVariable Long id, HttpServletRequest request, Model model, RedirectAttributes redirectAttributes) {
         Optional<Document> document = findAccessibleDocument(id, currentUser(request));
@@ -204,8 +295,10 @@ public class DocumentController {
             redirectAttributes.addFlashAttribute("error", "文档不存在或无权访问");
             return "redirect:/documents";
         }
-        homeController.prepareApp(model, "document-detail", "文档详情");
-        model.addAttribute("selectedDocument", homeController.documentView(document.get()));
+        homeController.prepareApp(model, "document-detail", "文档详情", currentUser(request));
+        HomeController.DocumentView selected = homeController.documentView(document.get());
+        model.addAttribute("selectedDocument", selected);
+        model.addAttribute("previewMode", previewMode(selected.fileType()));
         operationLogService.record(currentUser(request), "VIEW_DOCUMENT", "DOCUMENT", id, request.getRemoteAddr(), "SUCCESS");
         return "app";
     }
@@ -217,7 +310,7 @@ public class DocumentController {
             redirectAttributes.addFlashAttribute("error", "文档不存在或无权访问");
             return "redirect:/documents";
         }
-        homeController.prepareApp(model, "document-edit", "编辑文档");
+        homeController.prepareApp(model, "document-edit", "编辑文档", currentUser(request));
         model.addAttribute("selectedDocument", homeController.documentView(document.get()));
         return "app";
     }
@@ -251,6 +344,12 @@ public class DocumentController {
         document.setFileType(fileType.trim().toUpperCase());
         document.setCategoryId(categoryId);
         document.setDescription(description);
+        document.setReviewStatus(currentUser(request).isAdmin() ? "APPROVED" : "PENDING");
+        document.setReviewComment(currentUser(request).isAdmin() ? "" : "资料已更新，等待管理员重新审查");
+        if (currentUser(request).isAdmin()) {
+            document.setReviewedBy(currentUser(request).id());
+            document.setReviewedAt(LocalDateTime.now());
+        }
         document.setUpdatedAt(LocalDateTime.now());
         documentService.updateById(document);
         replaceTags(id, safeTagIds(tagIds));
@@ -268,13 +367,150 @@ public class DocumentController {
             redirectAttributes.addFlashAttribute("error", "文档不存在或无权访问");
             return "redirect:/documents";
         }
-        documentService.removeById(id);
+        moveToRecycleBin(document.get());
         operationLogService.record(currentUser(request), "DELETE_DOCUMENT", "DOCUMENT", id, request.getRemoteAddr(), "SUCCESS");
-        redirectAttributes.addFlashAttribute("success", "文档删除成功");
+        redirectAttributes.addFlashAttribute("success", "文档已移入回收站，可在 30 天内恢复");
         return "redirect:/documents";
     }
 
-    private List<HomeController.DocumentView> filterDocuments(String keyword, Long categoryId, Long tagId, String view, LoginUser currentUser) {
+    @PostMapping("/documents/bulk-delete")
+    @Transactional
+    public String bulkDelete(
+            @RequestParam(required = false) List<Long> documentIds,
+            HttpServletRequest request,
+            RedirectAttributes redirectAttributes
+    ) {
+        List<Long> ids = documentIds == null ? Collections.emptyList() : documentIds;
+        int deletedCount = 0;
+        for (Long id : ids) {
+            Optional<Document> document = findAccessibleDocument(id, currentUser(request));
+            if (document.isPresent()) {
+                moveToRecycleBin(document.get());
+                operationLogService.record(currentUser(request), "DELETE_DOCUMENT", "DOCUMENT", id, request.getRemoteAddr(), "SUCCESS");
+                deletedCount++;
+            }
+        }
+        redirectAttributes.addFlashAttribute("success", "已将 " + deletedCount + " 个文档移入回收站");
+        return "redirect:/documents";
+    }
+
+    @GetMapping("/recycle-bin")
+    public String recycleBin(HttpServletRequest request, Model model) {
+        LoginUser currentUser = currentUser(request);
+        homeController.prepareApp(model, "recycle-bin", "回收站", currentUser);
+        List<RecycleDocumentView> recycleDocuments = documentService.list(Wrappers.<Document>lambdaQuery()
+                        .eq(Document::getDeleted, 1)
+                        .orderByDesc(Document::getDeletedAt)
+                        .orderByDesc(Document::getId))
+                .stream()
+                .filter(document -> canAccessDeleted(document, currentUser))
+                .map(document -> new RecycleDocumentView(homeController.documentView(document), recycleCountdown(document)))
+                .toList();
+        model.addAttribute("recycleDocuments", recycleDocuments);
+        model.addAttribute("recycleTotal", recycleDocuments.size());
+        return "app";
+    }
+
+    @PostMapping("/recycle-bin/{id}/restore")
+    public String restoreDocument(@PathVariable Long id, HttpServletRequest request, RedirectAttributes redirectAttributes) {
+        Optional<Document> document = findRecycleDocument(id, currentUser(request));
+        if (document.isEmpty()) {
+            redirectAttributes.addFlashAttribute("error", "回收站中未找到该文档");
+            return "redirect:/recycle-bin";
+        }
+        restoreDocument(document.get());
+        operationLogService.record(currentUser(request), "RESTORE_DOCUMENT", "DOCUMENT", id, request.getRemoteAddr(), "SUCCESS");
+        redirectAttributes.addFlashAttribute("success", "文档已恢复");
+        return "redirect:/recycle-bin";
+    }
+
+    @PostMapping("/recycle-bin/bulk-restore")
+    public String bulkRestoreRecycleBin(
+            @RequestParam(required = false) List<Long> documentIds,
+            HttpServletRequest request,
+            RedirectAttributes redirectAttributes
+    ) {
+        List<Long> ids = documentIds == null ? Collections.emptyList() : documentIds;
+        int restoredCount = 0;
+        for (Long id : ids) {
+            Optional<Document> document = findRecycleDocument(id, currentUser(request));
+            if (document.isPresent()) {
+                restoreDocument(document.get());
+                operationLogService.record(currentUser(request), "RESTORE_DOCUMENT", "DOCUMENT", id, request.getRemoteAddr(), "SUCCESS");
+                restoredCount++;
+            }
+        }
+        redirectAttributes.addFlashAttribute("success", "已恢复 " + restoredCount + " 个文档");
+        return "redirect:/recycle-bin";
+    }
+
+    @PostMapping("/recycle-bin/restore-all")
+    public String restoreAllRecycleBin(HttpServletRequest request, RedirectAttributes redirectAttributes) {
+        LoginUser currentUser = currentUser(request);
+        List<Document> documents = documentService.list(Wrappers.<Document>lambdaQuery().eq(Document::getDeleted, 1))
+                .stream()
+                .filter(document -> canAccessDeleted(document, currentUser))
+                .toList();
+        for (Document document : documents) {
+            restoreDocument(document);
+            operationLogService.record(currentUser, "RESTORE_DOCUMENT", "DOCUMENT", document.getId(), request.getRemoteAddr(), "SUCCESS");
+        }
+        redirectAttributes.addFlashAttribute("success", "已一键恢复 " + documents.size() + " 个文档");
+        return "redirect:/recycle-bin";
+    }
+
+    @PostMapping("/recycle-bin/{id}/purge")
+    @Transactional
+    public String purgeDocumentRoute(@PathVariable Long id, HttpServletRequest request, RedirectAttributes redirectAttributes) {
+        Optional<Document> document = findRecycleDocument(id, currentUser(request));
+        if (document.isEmpty()) {
+            redirectAttributes.addFlashAttribute("error", "回收站中未找到该文档");
+            return "redirect:/recycle-bin";
+        }
+        purgeDocument(document.get());
+        operationLogService.record(currentUser(request), "PURGE_DOCUMENT", "DOCUMENT", id, request.getRemoteAddr(), "SUCCESS");
+        redirectAttributes.addFlashAttribute("success", "文档已彻底删除");
+        return "redirect:/recycle-bin";
+    }
+
+    @PostMapping("/recycle-bin/bulk-purge")
+    @Transactional
+    public String bulkPurgeRecycleBin(
+            @RequestParam(required = false) List<Long> documentIds,
+            HttpServletRequest request,
+            RedirectAttributes redirectAttributes
+    ) {
+        List<Long> ids = documentIds == null ? Collections.emptyList() : documentIds;
+        int purgedCount = 0;
+        for (Long id : ids) {
+            Optional<Document> document = findRecycleDocument(id, currentUser(request));
+            if (document.isPresent()) {
+                purgeDocument(document.get());
+                operationLogService.record(currentUser(request), "PURGE_DOCUMENT", "DOCUMENT", id, request.getRemoteAddr(), "SUCCESS");
+                purgedCount++;
+            }
+        }
+        redirectAttributes.addFlashAttribute("success", "已彻底删除 " + purgedCount + " 个文档");
+        return "redirect:/recycle-bin";
+    }
+
+    @PostMapping("/recycle-bin/empty")
+    @Transactional
+    public String emptyRecycleBin(HttpServletRequest request, RedirectAttributes redirectAttributes) {
+        LoginUser currentUser = currentUser(request);
+        List<Document> documents = documentService.list(Wrappers.<Document>lambdaQuery().eq(Document::getDeleted, 1))
+                .stream()
+                .filter(document -> canAccessDeleted(document, currentUser))
+                .toList();
+        for (Document document : documents) {
+            purgeDocument(document);
+            operationLogService.record(currentUser, "PURGE_DOCUMENT", "DOCUMENT", document.getId(), request.getRemoteAddr(), "SUCCESS");
+        }
+        redirectAttributes.addFlashAttribute("success", "已清空回收站，共清理 " + documents.size() + " 个文档");
+        return "redirect:/recycle-bin";
+    }
+
+    private List<HomeController.DocumentView> filterDocuments(String keyword, Long categoryId, Long tagId, String view, String sort, LoginUser currentUser) {
         List<Long> tagDocumentIds = tagId == null
                 ? Collections.emptyList()
                 : tagRelService.list(Wrappers.<DocumentTagRel>lambdaQuery().eq(DocumentTagRel::getTagId, tagId))
@@ -283,14 +519,18 @@ public class DocumentController {
                 .toList();
         LocalDateTime recentCutoff = LocalDateTime.now().minusDays(7);
 
-        return documentService.list(Wrappers.<Document>lambdaQuery().orderByDesc(Document::getUploadedAt).orderByDesc(Document::getId))
+        Comparator<Document> comparator = documentComparator(sort);
+        return documentService.list()
                 .stream()
+                .filter(document -> !deleted(document))
                 .filter(document -> canAccess(document, currentUser))
+                .filter(document -> reviewVisible(document, currentUser))
                 .filter(document -> !"recent".equals(normalizeView(view))
                         || (document.getUploadedAt() != null && !document.getUploadedAt().isBefore(recentCutoff)))
                 .filter(document -> categoryId == null || categoryId.equals(document.getCategoryId()))
                 .filter(document -> tagId == null || tagDocumentIds.contains(document.getId()))
                 .filter(document -> matchesKeyword(document, keyword))
+                .sorted(comparator)
                 .map(homeController::documentView)
                 .toList();
     }
@@ -311,7 +551,7 @@ public class DocumentController {
 
     private Optional<Document> findAccessibleDocument(Long id, LoginUser currentUser) {
         Document document = documentService.getById(id);
-        if (document == null || !canAccess(document, currentUser)) {
+        if (document == null || deleted(document) || !canAccess(document, currentUser)) {
             return Optional.empty();
         }
         return Optional.of(document);
@@ -319,6 +559,16 @@ public class DocumentController {
 
     private boolean canAccess(Document document, LoginUser currentUser) {
         return currentUser.isAdmin() || resolveUserId(currentUser).equals(document.getUploadUserId());
+    }
+
+    private boolean canAccessDeleted(Document document, LoginUser currentUser) {
+        return currentUser.isAdmin() || resolveUserId(currentUser).equals(document.getUploadUserId());
+    }
+
+    private boolean reviewVisible(Document document, LoginUser currentUser) {
+        return "APPROVED".equals(normalizeReviewStatus(document.getReviewStatus()))
+                || currentUser.isAdmin()
+                || resolveUserId(currentUser).equals(document.getUploadUserId());
     }
 
     private LoginUser currentUser(HttpServletRequest request) {
@@ -359,6 +609,98 @@ public class DocumentController {
         return Math.min(size, 50);
     }
 
+    private void moveToRecycleBin(Document document) {
+        document.setDeleted(1);
+        document.setDeletedAt(LocalDateTime.now());
+        document.setUpdatedAt(LocalDateTime.now());
+        documentService.updateById(document);
+        taskService.remove(Wrappers.<DocumentTask>lambdaQuery().eq(DocumentTask::getDocumentId, document.getId()));
+    }
+
+    private Optional<Document> findRecycleDocument(Long id, LoginUser currentUser) {
+        Document document = documentService.getById(id);
+        if (document == null || !deleted(document) || !canAccessDeleted(document, currentUser)) {
+            return Optional.empty();
+        }
+        return Optional.of(document);
+    }
+
+    private void restoreDocument(Document document) {
+        document.setDeleted(0);
+        document.setDeletedAt(null);
+        document.setUpdatedAt(LocalDateTime.now());
+        documentService.updateById(document);
+    }
+
+    private void purgeDocument(Document document) {
+        tagRelService.remove(Wrappers.<DocumentTagRel>lambdaQuery().eq(DocumentTagRel::getDocumentId, document.getId()));
+        taskService.remove(Wrappers.<DocumentTask>lambdaQuery().eq(DocumentTask::getDocumentId, document.getId()));
+        String storagePath = document.getStoragePath();
+        documentService.removeById(document.getId());
+        fileStorageService.deleteIfExists(storagePath);
+    }
+
+    private String recycleCountdown(Document document) {
+        if (document.getDeletedAt() == null) {
+            return "剩余 30 天";
+        }
+        long days = java.time.Duration.between(LocalDateTime.now(), document.getDeletedAt().plusDays(30)).toDays();
+        return days <= 0 ? "已到期，可清理" : "剩余 " + days + " 天";
+    }
+
+    private boolean deleted(Document document) {
+        return document.getDeleted() != null && document.getDeleted() == 1;
+    }
+
+    private Comparator<Document> documentComparator(String sort) {
+        return switch (normalizeSort(sort)) {
+            case "title_asc" -> Comparator.comparing(Document::getTitle, Comparator.nullsLast(String::compareToIgnoreCase));
+            case "updated_desc" -> Comparator.comparing(Document::getUpdatedAt, Comparator.nullsLast(LocalDateTime::compareTo)).reversed();
+            case "size_desc" -> Comparator.comparing(Document::getFileSize, Comparator.nullsLast(Long::compareTo)).reversed();
+            default -> Comparator.comparing(Document::getUploadedAt, Comparator.nullsLast(LocalDateTime::compareTo)).reversed();
+        };
+    }
+
+    private String normalizeSort(String sort) {
+        if ("title_asc".equals(sort) || "updated_desc".equals(sort) || "size_desc".equals(sort)) {
+            return sort;
+        }
+        return "created_desc";
+    }
+
+    private String normalizeDisplay(String display) {
+        return "grid".equals(display) ? "grid" : "list";
+    }
+
+    private String normalizeReviewStatus(String reviewStatus) {
+        if ("APPROVED".equals(reviewStatus) || "REJECTED".equals(reviewStatus)) {
+            return reviewStatus;
+        }
+        return "PENDING";
+    }
+
+    private MediaType previewMediaType(String fileType) {
+        String normalized = fileType == null ? "" : fileType.toUpperCase();
+        return switch (normalized) {
+            case "PNG" -> MediaType.IMAGE_PNG;
+            case "JPG", "JPEG" -> MediaType.IMAGE_JPEG;
+            case "PDF" -> MediaType.APPLICATION_PDF;
+            case "TXT", "CSV" -> MediaType.TEXT_PLAIN;
+            default -> MediaType.APPLICATION_OCTET_STREAM;
+        };
+    }
+
+    private String previewMode(String fileType) {
+        String normalized = fileType == null ? "" : fileType.toUpperCase();
+        if (List.of("PNG", "JPG", "JPEG").contains(normalized)) {
+            return "image";
+        }
+        if (List.of("PDF", "TXT", "CSV").contains(normalized)) {
+            return "frame";
+        }
+        return "placeholder";
+    }
+
     private void createPendingTaskIfNeeded(Long documentId, Long userId, List<Long> tagIds) {
         boolean hasPendingTag = tagIds.stream()
                 .map(tagService::getById)
@@ -392,5 +734,8 @@ public class DocumentController {
 
     private boolean isBlank(String value) {
         return value == null || value.trim().isBlank();
+    }
+
+    public record RecycleDocumentView(HomeController.DocumentView document, String countdown) {
     }
 }

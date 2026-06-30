@@ -20,6 +20,7 @@ public class AuthInterceptor implements HandlerInterceptor {
             "/tags",
             "/users",
             "/logs",
+            "/reviews",
             "/dev"
     );
 

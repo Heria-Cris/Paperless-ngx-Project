@@ -120,7 +120,9 @@ public class HomeController {
                         category.getId(),
                         category.getName(),
                         category.getDescription(),
-                        documentService.count(Wrappers.<Document>lambdaQuery().eq(Document::getCategoryId, category.getId()))
+                        documentService.count(Wrappers.<Document>lambdaQuery()
+                                .eq(Document::getDeleted, 0)
+                                .eq(Document::getCategoryId, category.getId()))
                 ))
                 .toList();
     }
@@ -164,7 +166,11 @@ public class HomeController {
                 document.getOriginalFilename(),
                 document.getFileSize(),
                 document.getCategoryId(),
-                tagIds
+                tagIds,
+                reviewStatusText(document.getReviewStatus()),
+                document.getReviewStatus() == null ? "PENDING" : document.getReviewStatus(),
+                document.getReviewComment() == null ? "" : document.getReviewComment(),
+                document.getDeletedAt() == null ? "" : document.getDeletedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
         );
     }
 
@@ -174,16 +180,25 @@ public class HomeController {
 
     public List<DocumentView> documentViews(LoginUser currentUser) {
         return documentService.list(Wrappers.<Document>lambdaQuery()
+                        .eq(Document::getDeleted, 0)
                         .orderByDesc(Document::getUploadedAt)
                         .orderByDesc(Document::getId))
                 .stream()
                 .filter(document -> canAccess(document, currentUser))
+                .filter(document -> reviewVisible(document, currentUser))
                 .map(this::documentView)
                 .toList();
     }
 
     private boolean canAccess(Document document, LoginUser currentUser) {
         return currentUser == null || currentUser.isAdmin() || resolveUserId(currentUser).equals(document.getUploadUserId());
+    }
+
+    private boolean reviewVisible(Document document, LoginUser currentUser) {
+        return "APPROVED".equals(normalizeReviewStatus(document.getReviewStatus()))
+                || currentUser == null
+                || currentUser.isAdmin()
+                || resolveUserId(currentUser).equals(document.getUploadUserId());
     }
 
     private Long resolveUserId(LoginUser currentUser) {
@@ -217,7 +232,10 @@ public class HomeController {
         }
         List<DocumentTask> pendingTasks = taskService.list(Wrappers.<DocumentTask>lambdaQuery()
                 .eq(DocumentTask::getUserId, currentUser.id())
-                .eq(DocumentTask::getStatus, "PENDING"));
+                .eq(DocumentTask::getStatus, "PENDING"))
+                .stream()
+                .filter(task -> activeTaskDocument(task.getDocumentId(), currentUser))
+                .toList();
         long pendingTaggedDocumentCount = pendingTaggedDocumentCount(currentUser);
         long overdueCount = pendingTasks.stream()
                 .filter(task -> task.getDueAt() != null && task.getDueAt().isBefore(java.time.LocalDateTime.now()))
@@ -255,10 +273,18 @@ public class HomeController {
                         .in(Document::getId, pendingDocumentIds))
                 .stream()
                 .filter(document -> canAccess(document, currentUser))
+                .filter(document -> document.getDeleted() == null || document.getDeleted() == 0)
                 .filter(document -> !taskService.exists(Wrappers.<DocumentTask>lambdaQuery()
                         .eq(DocumentTask::getUserId, currentUser.id())
                         .eq(DocumentTask::getDocumentId, document.getId())))
                 .count();
+    }
+
+    private boolean activeTaskDocument(Long documentId, LoginUser currentUser) {
+        Document document = documentService.getById(documentId);
+        return document != null
+                && (document.getDeleted() == null || document.getDeleted() == 0)
+                && canAccess(document, currentUser);
     }
 
     private List<OperationLogView> operationLogViews() {
@@ -291,6 +317,10 @@ public class HomeController {
             case "UPDATE_DOCUMENT" -> "编辑文档";
             case "DELETE_DOCUMENT" -> "删除文档";
             case "DOWNLOAD_DOCUMENT" -> "下载文档";
+            case "APPROVE_DOCUMENT" -> "审查通过";
+            case "REJECT_DOCUMENT" -> "审查打回";
+            case "RESTORE_DOCUMENT" -> "恢复文档";
+            case "PURGE_DOCUMENT" -> "彻底删除文档";
             case "CREATE_FILE_TASK" -> "创建文件任务";
             case "UPDATE_FILE_TASK" -> "更新文件任务";
             case "COMPLETE_FILE_TASK" -> "完成文件任务";
@@ -311,6 +341,21 @@ public class HomeController {
         return String.format("%.1f MB", mb);
     }
 
+    private String normalizeReviewStatus(String reviewStatus) {
+        if ("APPROVED".equals(reviewStatus) || "REJECTED".equals(reviewStatus)) {
+            return reviewStatus;
+        }
+        return "PENDING";
+    }
+
+    private String reviewStatusText(String reviewStatus) {
+        return switch (normalizeReviewStatus(reviewStatus)) {
+            case "APPROVED" -> "已通过";
+            case "REJECTED" -> "已打回";
+            default -> "审查中";
+        };
+    }
+
     public record DocumentView(
             Long id,
             long asn,
@@ -327,7 +372,11 @@ public class HomeController {
             String originalFilename,
             Long fileSize,
             Long categoryId,
-            List<Long> tagIds
+            List<Long> tagIds,
+            String reviewStatusText,
+            String reviewStatus,
+            String reviewComment,
+            String deletedAt
     ) {
     }
 

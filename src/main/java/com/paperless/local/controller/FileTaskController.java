@@ -76,6 +76,7 @@ public class FileTaskController {
         List<DocumentTask> tasks = taskService.list(Wrappers.<DocumentTask>lambdaQuery()
                         .eq(DocumentTask::getUserId, currentUser.id()))
                 .stream()
+                .filter(task -> activeTaskDocument(task.getDocumentId(), currentUser))
                 .sorted(this::compareTasks)
                 .toList();
         List<TaskView> taskViews = tasks.stream().map(this::taskView).toList();
@@ -239,9 +240,13 @@ public class FileTaskController {
 
     private List<Document> visibleDocuments(LoginUser currentUser) {
         return documentService.list(Wrappers.<Document>lambdaQuery()
+                        .eq(Document::getDeleted, 0)
                         .orderByDesc(Document::getUploadedAt)
                         .orderByDesc(Document::getId))
                 .stream()
+                .filter(document -> "APPROVED".equals(normalizeReviewStatus(document.getReviewStatus()))
+                        || currentUser.isAdmin()
+                        || currentUser.id().equals(document.getUploadUserId()))
                 .filter(document -> currentUser.isAdmin() || currentUser.id().equals(document.getUploadUserId()))
                 .toList();
     }
@@ -282,10 +287,30 @@ public class FileTaskController {
 
     private Optional<Document> accessibleDocument(Long documentId, LoginUser currentUser) {
         Document document = documentService.getById(documentId);
-        if (document == null || (!currentUser.isAdmin() && !currentUser.id().equals(document.getUploadUserId()))) {
+        if (document == null
+                || deleted(document)
+                || (!currentUser.isAdmin() && !currentUser.id().equals(document.getUploadUserId()))) {
             return Optional.empty();
         }
         return Optional.of(document);
+    }
+
+    private boolean activeTaskDocument(Long documentId, LoginUser currentUser) {
+        Document document = documentService.getById(documentId);
+        return document != null
+                && !deleted(document)
+                && (currentUser.isAdmin() || currentUser.id().equals(document.getUploadUserId()));
+    }
+
+    private boolean deleted(Document document) {
+        return document.getDeleted() != null && document.getDeleted() == 1;
+    }
+
+    private String normalizeReviewStatus(String reviewStatus) {
+        if ("APPROVED".equals(reviewStatus) || "REJECTED".equals(reviewStatus)) {
+            return reviewStatus;
+        }
+        return "PENDING";
     }
 
     private Optional<DocumentTask> ownedTask(Long id, LoginUser currentUser) {

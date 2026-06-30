@@ -36,16 +36,21 @@ ON DUPLICATE KEY UPDATE
 
 INSERT INTO document (
   id, title, original_filename, stored_filename, storage_path,
-  file_size, file_type, category_id, upload_user_id, description, deleted
+  file_size, file_type, category_id, upload_user_id, description, deleted,
+  review_status, review_comment, reviewed_by, reviewed_at
 )
 VALUES
-  (1, 'Java Web 实训需求文档', 'java-web-prd.pdf', '20260626_1_java-web-prd.pdf', 'uploads/2026/06/user_1/20260626_1_java-web-prd.pdf', 204800, 'PDF', 4, 1, '课程实训需求说明', 0),
-  (2, '报销发票样例', 'invoice-demo.png', '20260626_2_invoice-demo.png', 'uploads/2026/06/user_2/20260626_2_invoice-demo.png', 102400, 'PNG', 2, 2, '普通用户上传的发票样例', 0),
-  (3, '项目阶段总结', 'project-summary.docx', '20260626_3_project-summary.docx', 'uploads/2026/06/user_1/20260626_3_project-summary.docx', 307200, 'DOCX', 5, 1, '阶段性总结报告', 0)
+  (1, 'Java Web 实训需求文档', 'java-web-prd.pdf', '20260626_1_java-web-prd.pdf', 'uploads/2026/06/user_1/20260626_1_java-web-prd.pdf', 204800, 'PDF', 4, 1, '课程实训需求说明', 0, 'APPROVED', '', 1, NOW()),
+  (2, '报销发票样例', 'invoice-demo.png', '20260626_2_invoice-demo.png', 'uploads/2026/06/user_2/20260626_2_invoice-demo.png', 102400, 'PNG', 2, 2, '普通用户上传的发票样例', 0, 'APPROVED', '', 1, NOW()),
+  (3, '项目阶段总结', 'project-summary.docx', '20260626_3_project-summary.docx', 'uploads/2026/06/user_1/20260626_3_project-summary.docx', 307200, 'DOCX', 5, 1, '阶段性总结报告', 0, 'APPROVED', '', 1, NOW())
 ON DUPLICATE KEY UPDATE
   title = VALUES(title),
   description = VALUES(description),
-  deleted = VALUES(deleted);
+  deleted = VALUES(deleted),
+  review_status = VALUES(review_status),
+  review_comment = VALUES(review_comment),
+  reviewed_by = VALUES(reviewed_by),
+  reviewed_at = VALUES(reviewed_at);
 
 INSERT INTO document_tag_rel (document_id, tag_id)
 VALUES

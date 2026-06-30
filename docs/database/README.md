@@ -58,6 +58,21 @@ source E:/workspace/2606 ShiXun/Paperless-ngx-Project/docs/database/upgrade-stag
 source E:/workspace/2606 ShiXun/Paperless-ngx-Project/docs/database/upgrade-stage9-tasks-logs.sql;
 ```
 
+阶段 10 新增文件审查和回收站字段后，旧数据库还需要执行：
+
+```sql
+source E:/workspace/2606 ShiXun/Paperless-ngx-Project/docs/database/upgrade-stage10-review-recycle.sql;
+```
+
+建议旧库升级顺序：
+
+```sql
+source E:/workspace/2606 ShiXun/Paperless-ngx-Project/docs/database/upgrade-stage8-users.sql;
+source E:/workspace/2606 ShiXun/Paperless-ngx-Project/docs/database/upgrade-stage9-tasks-logs.sql;
+source E:/workspace/2606 ShiXun/Paperless-ngx-Project/docs/database/upgrade-stage10-review-recycle.sql;
+source E:/workspace/2606 ShiXun/Paperless-ngx-Project/docs/database/demo-data.sql;
+```
+
 如果使用 Navicat 或 DataGrip：
 
 1. 连接本地 MySQL。
