@@ -36,8 +36,11 @@ import com.paperless.local.model.LoginUser;
 import com.paperless.local.service.DocumentService;
 import com.paperless.local.service.DocumentTagRelService;
 import com.paperless.local.service.DocumentTagService;
+import com.paperless.local.service.DocumentTaskService;
 import com.paperless.local.service.FileStorageService;
+import com.paperless.local.service.OperationLogService;
 import com.paperless.local.service.UserService;
+import com.paperless.local.entity.DocumentTask;
 
 @Controller
 public class DocumentController {
@@ -45,23 +48,29 @@ public class DocumentController {
     private final DocumentService documentService;
     private final DocumentTagService tagService;
     private final DocumentTagRelService tagRelService;
+    private final DocumentTaskService taskService;
     private final UserService userService;
     private final FileStorageService fileStorageService;
+    private final OperationLogService operationLogService;
     private final HomeController homeController;
 
     public DocumentController(
             DocumentService documentService,
             DocumentTagService tagService,
             DocumentTagRelService tagRelService,
+            DocumentTaskService taskService,
             UserService userService,
             FileStorageService fileStorageService,
+            OperationLogService operationLogService,
             HomeController homeController
     ) {
         this.documentService = documentService;
         this.tagService = tagService;
         this.tagRelService = tagRelService;
+        this.taskService = taskService;
         this.userService = userService;
         this.fileStorageService = fileStorageService;
+        this.operationLogService = operationLogService;
         this.homeController = homeController;
     }
 
@@ -100,6 +109,7 @@ public class DocumentController {
         model.addAttribute("hasNext", currentPage < totalPages);
         model.addAttribute("previousPage", Math.max(1, currentPage - 1));
         model.addAttribute("nextPage", Math.min(totalPages, currentPage + 1));
+        operationLogService.record(currentUser(request), "LIST_DOCUMENTS", "DOCUMENT", null, request.getRemoteAddr(), "SUCCESS");
         return "app";
     }
 
@@ -145,6 +155,8 @@ public class DocumentController {
             document.setUpdatedAt(LocalDateTime.now());
             documentService.save(document);
             replaceTags(document.getId(), safeTagIds(tagIds));
+            createPendingTaskIfNeeded(document.getId(), userId, safeTagIds(tagIds));
+            operationLogService.record(currentUser(request), "UPLOAD_DOCUMENT", "DOCUMENT", document.getId(), request.getRemoteAddr(), "SUCCESS");
 
             redirectAttributes.addFlashAttribute("success", "文件上传成功");
             return "redirect:/documents/" + document.getId();
@@ -170,10 +182,12 @@ public class DocumentController {
         Document current = document.get();
         Path filePath = fileStorageService.resolve(current.getStoragePath());
         if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
+            operationLogService.record(currentUser(request), "DOWNLOAD_DOCUMENT", "DOCUMENT", id, request.getRemoteAddr(), "FAILED");
             return ResponseEntity.notFound().build();
         }
 
         Resource resource = new UrlResource(filePath.toUri());
+        operationLogService.record(currentUser(request), "DOWNLOAD_DOCUMENT", "DOCUMENT", id, request.getRemoteAddr(), "SUCCESS");
         ContentDisposition contentDisposition = ContentDisposition.attachment()
                 .filename(current.getOriginalFilename(), StandardCharsets.UTF_8)
                 .build();
@@ -192,6 +206,7 @@ public class DocumentController {
         }
         homeController.prepareApp(model, "document-detail", "文档详情");
         model.addAttribute("selectedDocument", homeController.documentView(document.get()));
+        operationLogService.record(currentUser(request), "VIEW_DOCUMENT", "DOCUMENT", id, request.getRemoteAddr(), "SUCCESS");
         return "app";
     }
 
@@ -239,6 +254,7 @@ public class DocumentController {
         document.setUpdatedAt(LocalDateTime.now());
         documentService.updateById(document);
         replaceTags(id, safeTagIds(tagIds));
+        operationLogService.record(currentUser(request), "UPDATE_DOCUMENT", "DOCUMENT", id, request.getRemoteAddr(), "SUCCESS");
 
         redirectAttributes.addFlashAttribute("success", "文档元数据更新成功");
         return "redirect:/documents/" + id;
@@ -253,6 +269,7 @@ public class DocumentController {
             return "redirect:/documents";
         }
         documentService.removeById(id);
+        operationLogService.record(currentUser(request), "DELETE_DOCUMENT", "DOCUMENT", id, request.getRemoteAddr(), "SUCCESS");
         redirectAttributes.addFlashAttribute("success", "文档删除成功");
         return "redirect:/documents";
     }
@@ -340,6 +357,33 @@ public class DocumentController {
             return 10;
         }
         return Math.min(size, 50);
+    }
+
+    private void createPendingTaskIfNeeded(Long documentId, Long userId, List<Long> tagIds) {
+        boolean hasPendingTag = tagIds.stream()
+                .map(tagService::getById)
+                .filter(java.util.Objects::nonNull)
+                .anyMatch(tag -> "待处理".equals(tag.getName()));
+        if (!hasPendingTag) {
+            return;
+        }
+        boolean exists = taskService.exists(Wrappers.<DocumentTask>lambdaQuery()
+                .eq(DocumentTask::getDocumentId, documentId)
+                .eq(DocumentTask::getUserId, userId)
+                .eq(DocumentTask::getStatus, "PENDING"));
+        if (exists) {
+            return;
+        }
+        DocumentTask task = new DocumentTask();
+        task.setDocumentId(documentId);
+        task.setUserId(userId);
+        task.setStatus("PENDING");
+        task.setPriority("MEDIUM");
+        task.setDueAt(LocalDateTime.now().plusDays(1));
+        task.setNote("文档带有待处理标签，请及时处理");
+        task.setCreatedAt(LocalDateTime.now());
+        task.setUpdatedAt(LocalDateTime.now());
+        taskService.save(task);
     }
 
     private String normalizeView(String view) {

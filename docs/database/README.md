@@ -52,6 +52,12 @@ source E:/workspace/2606 ShiXun/Paperless-ngx-Project/docs/database/upgrade-stag
 
 然后再执行 `demo-data.sql` 刷新演示账号信息。升级脚本会为 `sys_user` 增加头像、邮箱、手机号和简介字段，并把演示账号密码更新为 SHA-256 哈希。
 
+阶段 9 新增文件任务表后，旧数据库还需要执行：
+
+```sql
+source E:/workspace/2606 ShiXun/Paperless-ngx-Project/docs/database/upgrade-stage9-tasks-logs.sql;
+```
+
 如果使用 Navicat 或 DataGrip：
 
 1. 连接本地 MySQL。

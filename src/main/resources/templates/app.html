@@ -47,11 +47,12 @@
         <nav th:if="${currentUser.admin}">
             <a href="/dashboard">⚙ 系统设置</a>
             <a th:classappend="${activePage == 'users'} ? ' active'" href="/users">♧ 用户管理</a>
-            <a href="/dashboard">☰ 文件任务 <span class="count-badge">16</span></a>
+            <a th:classappend="${activePage == 'file-tasks'} ? ' active'" href="/file-tasks">☰ 文件任务 <span class="count-badge" th:text="${pendingTaskTotal}">0</span></a>
             <a th:classappend="${activePage == 'logs'} ? ' active'" href="/logs">☰ 操作日志</a>
         </nav>
         <nav th:unless="${currentUser.admin}">
             <a th:classappend="${activePage == 'profile'} ? ' active'" href="/profile">⚙ 个人设置</a>
+            <a th:classappend="${activePage == 'file-tasks'} ? ' active'" href="/file-tasks">☰ 文件任务 <span class="count-badge" th:text="${pendingTaskTotal}">0</span></a>
         </nav>
         <footer>
             <a href="/dashboard">? 项目文档</a>
@@ -61,6 +62,8 @@
 
     <main class="content">
         <div class="alert warning" th:if="${warning}" th:text="${warning}">当前账号无权访问该管理页面</div>
+        <div class="alert danger" th:if="${taskWarning}" th:text="${taskWarning}">你有文件任务已逾期</div>
+        <div class="alert warning" th:if="${taskNotice}" th:text="${taskNotice}">你有文件任务即将到期</div>
         <div class="alert success" th:if="${success}" th:text="${success}">操作成功</div>
         <div class="alert danger" th:if="${error}" th:text="${error}">操作失败</div>
         <section th:if="${activePage == 'dashboard'}">
@@ -537,10 +540,115 @@
             </section>
         </section>
 
+        <section th:if="${activePage == 'file-tasks'}">
+            <div class="page-title-row">
+                <h1>文件任务</h1>
+                <p>待处理 <span th:text="${pendingTaskTotal}">0</span> 个，逾期 <span th:text="${overdueTaskTotal}">0</span> 个</p>
+            </div>
+            <section class="task-layout">
+                <div class="panel form-panel">
+                    <div class="panel-title"><h2>创建待处理任务</h2></div>
+                    <form class="task-create-form" method="post" action="/file-tasks">
+                        <label>关联文档
+                            <select name="documentId" required>
+                                <option value="">请选择文档</option>
+                                <option th:each="doc : ${availableTaskDocuments}" th:value="${doc.id}" th:text="${doc.title}">文档</option>
+                            </select>
+                        </label>
+                        <label>最晚处理时间<input type="datetime-local" name="dueAt" required></label>
+                        <label>紧急程度
+                            <select name="priority">
+                                <option value="HIGH">高</option>
+                                <option value="MEDIUM" selected>中</option>
+                                <option value="LOW">低</option>
+                            </select>
+                        </label>
+                        <label class="wide-field">处理说明<textarea name="note" placeholder="例如：补充最新版合同、检查发票信息、归档后通知老师"></textarea></label>
+                        <button class="primary-button compact-submit" type="submit">创建任务</button>
+                    </form>
+                </div>
+                <div class="panel compact-panel">
+                    <div class="panel-title"><h2>任务规则</h2></div>
+                    <ul class="stat-list">
+                        <li><span>排序：</span><strong>逾期优先</strong></li>
+                        <li><span>其次：</span><strong>高优先级</strong></li>
+                        <li><span>提醒：</span><strong>登录后显示</strong></li>
+                    </ul>
+                </div>
+            </section>
+            <section class="panel table-panel">
+                <div class="result-meta task-result-meta">
+                    <p class="result-count">共 <span th:text="${taskTotal}">0</span> 个任务</p>
+                    <form class="page-size-form" method="get" action="/file-tasks">
+                        <label>每页
+                            <select name="size">
+                                <option value="5" th:selected="${taskPageSize == 5}">5 条</option>
+                                <option value="10" th:selected="${taskPageSize == 10}">10 条</option>
+                                <option value="20" th:selected="${taskPageSize == 20}">20 条</option>
+                            </select>
+                        </label>
+                        <button class="outline-button" type="submit">应用</button>
+                    </form>
+                    <p class="page-indicator">第 <span th:text="${taskPage}">1</span> / <span th:text="${taskTotalPages}">1</span> 页</p>
+                </div>
+                <table class="data-table">
+                    <thead>
+                    <tr>
+                        <th>状态</th>
+                        <th>文档</th>
+                        <th>紧急程度</th>
+                        <th>最晚处理时间</th>
+                        <th>说明</th>
+                        <th>操作</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="task : ${fileTasks}"
+                        th:classappend="${task.status == 'DONE'} ? ' done-task-row' : (${task.overdue} ? ' overdue-row' : (${task.dueSoon} ? ' due-soon-row' : (${task.priority == 'HIGH'} ? ' high-priority-row' : (${task.priority == 'LOW'} ? ' low-priority-row' : ' medium-priority-row'))))">
+                        <td>
+                            <span class="status-pill" th:classappend="${task.status == 'DONE'} ? ' enabled' : ' disabled'" th:text="${task.statusText}">待处理</span>
+                            <small class="urgency-text" th:text="${task.urgency}">正常</small>
+                        </td>
+                        <td><a th:href="@{/documents/{id}(id=${task.documentId})}" th:text="${task.documentTitle}">文档标题</a></td>
+                        <td th:text="${task.priorityText}">中</td>
+                        <td th:text="${task.dueAt}">2026-06-30 18:00</td>
+                        <td th:text="${task.note == null || task.note.isBlank() ? '无' : task.note}">说明</td>
+                        <td>
+                            <div class="task-actions">
+                                <form method="post" th:action="@{/file-tasks/{id}/update(id=${task.id})}">
+                                    <input type="datetime-local" name="dueAt" th:value="${task.dueAtInput}" required>
+                                    <select name="priority">
+                                        <option value="HIGH" th:selected="${task.priority == 'HIGH'}">高</option>
+                                        <option value="MEDIUM" th:selected="${task.priority == 'MEDIUM'}">中</option>
+                                        <option value="LOW" th:selected="${task.priority == 'LOW'}">低</option>
+                                    </select>
+                                    <input name="note" th:value="${task.note}" placeholder="任务说明">
+                                    <button type="submit">更新任务</button>
+                                </form>
+                                <form method="post" enctype="multipart/form-data" th:action="@{/file-tasks/{id}/replace-file(id=${task.id})}">
+                                    <input type="file" name="file" required accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.txt,.csv">
+                                    <button type="submit">覆盖文件</button>
+                                </form>
+                                <form th:if="${task.status == 'PENDING'}" method="post" th:action="@{/file-tasks/{id}/complete(id=${task.id})}">
+                                    <button type="submit">已处理</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+                <nav class="pagination" th:if="${taskTotalPages > 1}">
+                    <a class="outline-button" th:classappend="${!taskHasPrevious} ? ' disabled'" th:href="@{/file-tasks(page=${taskPreviousPage},size=${taskPageSize})}">上一页</a>
+                    <span>第 <strong th:text="${taskPage}">1</strong> / <strong th:text="${taskTotalPages}">1</strong> 页</span>
+                    <a class="outline-button" th:classappend="${!taskHasNext} ? ' disabled'" th:href="@{/file-tasks(page=${taskNextPage},size=${taskPageSize})}">下一页</a>
+                </nav>
+            </section>
+        </section>
+
         <section th:if="${activePage == 'logs'}">
             <div class="page-title-row">
                 <h1>操作日志</h1>
-                <button class="primary-button">导出</button>
+                <p>仅管理员可见，展示最近 100 条关键操作</p>
             </div>
             <section class="panel table-panel">
                 <table class="data-table">
@@ -549,21 +657,19 @@
                         <th>时间</th>
                         <th>用户</th>
                         <th>操作</th>
+                        <th>对象</th>
+                        <th>IP</th>
                         <th>结果</th>
                     </tr>
                     </thead>
                     <tbody>
-                    <tr>
-                        <td>2026-06-26 15:20</td>
-                        <td>admin</td>
-                        <td>登录</td>
-                        <td>成功</td>
-                    </tr>
-                    <tr>
-                        <td>2026-06-26 15:28</td>
-                        <td>user</td>
-                        <td>上传文档</td>
-                        <td>成功</td>
+                    <tr th:each="log : ${operationLogs}">
+                        <td th:text="${log.time}">2026-06-30 10:00:00</td>
+                        <td th:text="${log.username}">admin</td>
+                        <td th:text="${log.operation}">上传文档</td>
+                        <td th:text="${log.targetType + (log.targetId == null ? '' : ' #' + log.targetId)}">DOCUMENT #1</td>
+                        <td th:text="${log.ipAddress == null || log.ipAddress.isBlank() ? '-' : log.ipAddress}">127.0.0.1</td>
+                        <td th:text="${log.result}">SUCCESS</td>
                     </tr>
                     </tbody>
                 </table>

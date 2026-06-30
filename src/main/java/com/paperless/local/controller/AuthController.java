@@ -11,15 +11,18 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.paperless.local.model.LoginUser;
 import com.paperless.local.service.AuthService;
+import com.paperless.local.service.OperationLogService;
 import com.paperless.local.web.SessionKeys;
 
 @Controller
 public class AuthController {
 
     private final AuthService authService;
+    private final OperationLogService operationLogService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, OperationLogService operationLogService) {
         this.authService = authService;
+        this.operationLogService = operationLogService;
     }
 
     @GetMapping("/login")
@@ -48,6 +51,7 @@ public class AuthController {
 
     private String loginSuccess(HttpSession session, LoginUser user) {
         session.setAttribute(SessionKeys.LOGIN_USER, user);
+        operationLogService.record(user, "LOGIN", "USER", user.id(), null, "SUCCESS");
         return "redirect:/dashboard";
     }
 

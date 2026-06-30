@@ -62,3 +62,13 @@ VALUES
   (1, 'admin', 'LOGIN', 'USER', 1, '127.0.0.1', 'SUCCESS'),
   (1, 'admin', 'UPLOAD_DOCUMENT', 'DOCUMENT', 1, '127.0.0.1', 'SUCCESS'),
   (2, 'user', 'UPLOAD_DOCUMENT', 'DOCUMENT', 2, '127.0.0.1', 'SUCCESS');
+
+INSERT INTO document_task (id, document_id, user_id, status, priority, due_at, note)
+VALUES
+  (1, 1, 1, 'PENDING', 'HIGH', DATE_ADD(NOW(), INTERVAL 1 DAY), '检查需求文档是否需要补充最新版'),
+  (2, 3, 1, 'PENDING', 'MEDIUM', DATE_ADD(NOW(), INTERVAL 3 DAY), '整理阶段总结后归档')
+ON DUPLICATE KEY UPDATE
+  status = VALUES(status),
+  priority = VALUES(priority),
+  due_at = VALUES(due_at),
+  note = VALUES(note);
