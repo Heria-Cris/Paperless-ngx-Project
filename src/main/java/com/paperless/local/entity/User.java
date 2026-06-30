@@ -21,6 +21,14 @@ public class User {
 
     private String nickname;
 
+    private String avatarUrl;
+
+    private String email;
+
+    private String phone;
+
+    private String bio;
+
     private String role;
 
     private Integer status;

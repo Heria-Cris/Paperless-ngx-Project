@@ -136,6 +136,15 @@ button,
     font-size: 20px;
 }
 
+.avatar-img {
+    width: 34px;
+    height: 34px;
+    border: 2px solid rgba(255, 255, 255, 0.34);
+    border-radius: 50%;
+    object-fit: cover;
+    background: #ffffff;
+}
+
 .user-menu {
     display: flex;
     align-items: center;
@@ -483,6 +492,15 @@ button,
     padding: 18px;
 }
 
+.user-manage-form {
+    grid-template-columns: repeat(3, minmax(180px, 1fr)) auto;
+}
+
+.password-reset-form {
+    grid-template-columns: minmax(220px, 320px) auto;
+    border-top: 1px solid var(--line);
+}
+
 .row-actions {
     display: flex;
     gap: 8px;
@@ -497,6 +515,74 @@ button,
     min-width: 38px;
     min-height: 30px;
     padding: 4px 8px;
+}
+
+.profile-grid {
+    display: grid;
+    grid-template-columns: minmax(360px, 1fr) 420px;
+    gap: 24px;
+}
+
+.profile-head,
+.user-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.profile-head {
+    margin-bottom: 18px;
+}
+
+.profile-head img {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--line);
+}
+
+.profile-head strong,
+.user-cell strong {
+    display: block;
+}
+
+.profile-head span,
+.user-cell span,
+.data-table small {
+    color: var(--muted);
+}
+
+.user-cell img {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--line);
+}
+
+.single-column-form {
+    grid-template-columns: 1fr;
+}
+
+.status-pill {
+    display: inline-flex;
+    min-width: 46px;
+    justify-content: center;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.status-pill.enabled {
+    background: #d1e7dd;
+    color: #0f5132;
+}
+
+.status-pill.disabled {
+    background: #f8d7da;
+    color: #842029;
 }
 
 .color-dot {
@@ -669,7 +755,8 @@ textarea {
     }
 
     .dashboard-grid,
-    .detail-layout {
+    .detail-layout,
+    .profile-grid {
         grid-template-columns: 1fr;
     }
 }
@@ -724,7 +811,9 @@ textarea {
         grid-template-columns: 1fr;
     }
 
-    .inline-manage-form {
+    .inline-manage-form,
+    .user-manage-form,
+    .password-reset-form {
         grid-template-columns: 1fr;
     }
 }

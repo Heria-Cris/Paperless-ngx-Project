@@ -36,7 +36,7 @@ public class TagController {
 
     @GetMapping("/tags")
     public String tags(@RequestParam(name = "editId", required = false) Long editId, Model model) {
-        homeController.prepareManagePage(model, "tags", "Tags", editId);
+        homeController.prepareManagePage(model, "tags", "标签管理", editId);
         return "app";
     }
 

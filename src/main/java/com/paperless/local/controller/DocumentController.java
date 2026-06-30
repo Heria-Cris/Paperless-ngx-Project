@@ -75,7 +75,7 @@ public class DocumentController {
             HttpServletRequest request,
             Model model
     ) {
-        homeController.prepareApp(model, "documents", "Documents", currentUser(request));
+        homeController.prepareApp(model, "documents", "文档管理", currentUser(request));
         List<HomeController.DocumentView> filtered = filterDocuments(keyword, categoryId, tagId, currentUser(request));
         int pageSize = normalizePageSize(size);
         int totalPages = Math.max(1, (int) Math.ceil(filtered.size() / (double) pageSize));
@@ -102,7 +102,7 @@ public class DocumentController {
 
     @GetMapping("/documents/upload")
     public String upload(Model model) {
-        homeController.prepareApp(model, "upload", "Upload documents");
+        homeController.prepareApp(model, "upload", "上传文档");
         return "app";
     }
 
@@ -187,7 +187,7 @@ public class DocumentController {
             redirectAttributes.addFlashAttribute("error", "文档不存在或无权访问");
             return "redirect:/documents";
         }
-        homeController.prepareApp(model, "document-detail", "Document detail");
+        homeController.prepareApp(model, "document-detail", "文档详情");
         model.addAttribute("selectedDocument", homeController.documentView(document.get()));
         return "app";
     }
@@ -199,7 +199,7 @@ public class DocumentController {
             redirectAttributes.addFlashAttribute("error", "文档不存在或无权访问");
             return "redirect:/documents";
         }
-        homeController.prepareApp(model, "document-edit", "Edit document");
+        homeController.prepareApp(model, "document-edit", "编辑文档");
         model.addAttribute("selectedDocument", homeController.documentView(document.get()));
         return "app";
     }

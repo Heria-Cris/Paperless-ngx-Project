@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${pageTitle} + ' - Paperless-ngx'">Paperless-ngx</title>
+    <title th:text="${pageTitle} + ' - 本地文档管理系统'">本地文档管理系统</title>
     <link rel="stylesheet" th:href="@{/css/app.css}">
 </head>
 <body>
@@ -11,53 +11,52 @@
     <header class="top-nav">
         <a class="product" href="/dashboard">
             <span class="leaf-mark">◒</span>
-            <strong>Paperless-ngx</strong>
+            <strong>本地文档管理系统</strong>
         </a>
         <form class="global-search" action="/documents" method="get">
             <span>⌕</span>
-            <input type="search" name="keyword" placeholder="Search documents">
+            <input type="search" name="keyword" placeholder="搜索文档">
         </form>
         <div class="user-menu">
-            <span class="avatar">◉</span>
+            <img class="avatar-img" th:src="${currentUser.avatarUrl == null || currentUser.avatarUrl.isBlank() ? '/images/default-avatar.svg' : currentUser.avatarUrl}" alt="头像">
             <span th:text="${currentUser.displayName}">User2</span>
-            <small th:text="${currentUser.role}">ADMIN</small>
+            <small th:text="${currentUser.admin ? '管理员' : '普通用户'}">管理员</small>
+            <a href="/profile">个人中心</a>
             <a href="/logout">退出</a>
         </div>
     </header>
 
     <aside class="side-nav">
         <nav>
-            <a th:classappend="${activePage == 'dashboard'} ? ' active'" href="/dashboard">⌂ Dashboard</a>
-            <a th:classappend="${#strings.startsWith(activePage, 'document') || activePage == 'upload'} ? ' active'" href="/documents">▯ Documents</a>
+            <a th:classappend="${activePage == 'dashboard'} ? ' active'" href="/dashboard">⌂ 工作台</a>
+            <a th:classappend="${#strings.startsWith(activePage, 'document') || activePage == 'upload'} ? ' active'" href="/documents">▯ 文档管理</a>
         </nav>
-        <h3>Saved views</h3>
+        <h3>快捷视图</h3>
         <nav>
-            <a href="/documents">▽ Inbox</a>
-            <a href="/documents">▽ Recently Added</a>
+            <a href="/documents">▽ 全部文档</a>
+            <a href="/documents">▽ 最近添加</a>
         </nav>
-        <h3>Manage</h3>
+        <h3>资料维护</h3>
         <nav>
-            <a href="/documents">♙ Correspondents</a>
-            <a th:if="${currentUser.admin}" th:classappend="${activePage == 'tags'} ? ' active'" href="/tags">◇ Tags</a>
-            <a th:if="${currentUser.admin}" th:classappend="${activePage == 'categories'} ? ' active'" href="/categories"># Document Types</a>
-            <a href="/documents">▱ Storage Paths</a>
-            <a href="/documents">☷ Custom Fields</a>
-            <a href="/documents/upload">▤ Templates</a>
-            <a href="/documents/upload">✉ Mail</a>
+            <a href="/documents">♙ 上传人</a>
+            <a th:if="${currentUser.admin}" th:classappend="${activePage == 'tags'} ? ' active'" href="/tags">◇ 标签管理</a>
+            <a th:if="${currentUser.admin}" th:classappend="${activePage == 'categories'} ? ' active'" href="/categories"># 分类管理</a>
+            <a href="/documents">▱ 存储路径</a>
+            <a href="/documents/upload">▤ 上传文档</a>
         </nav>
-        <h3>Administration</h3>
+        <h3>系统管理</h3>
         <nav th:if="${currentUser.admin}">
-            <a href="/dashboard">⚙ Settings</a>
-            <a th:classappend="${activePage == 'users'} ? ' active'" href="/users">♧ Users & Groups</a>
-            <a href="/dashboard">☰ File Tasks <span class="count-badge">16</span></a>
-            <a th:classappend="${activePage == 'logs'} ? ' active'" href="/logs">☰ Logs</a>
+            <a href="/dashboard">⚙ 系统设置</a>
+            <a th:classappend="${activePage == 'users'} ? ' active'" href="/users">♧ 用户管理</a>
+            <a href="/dashboard">☰ 文件任务 <span class="count-badge">16</span></a>
+            <a th:classappend="${activePage == 'logs'} ? ' active'" href="/logs">☰ 操作日志</a>
         </nav>
         <nav th:unless="${currentUser.admin}">
-            <a href="/dashboard">⚙ Personal settings</a>
+            <a th:classappend="${activePage == 'profile'} ? ' active'" href="/profile">⚙ 个人设置</a>
         </nav>
         <footer>
-            <a href="https://docs.paperless-ngx.com/#screenshots">? Documentation</a>
-            <span>Paperless-ngx v2.0.0 style reference</span>
+            <a href="/dashboard">? 项目文档</a>
+            <span>课程实训本地文档管理系统</span>
         </footer>
     </aside>
 
@@ -67,31 +66,31 @@
         <div class="alert danger" th:if="${error}" th:text="${error}">操作失败</div>
         <section th:if="${activePage == 'dashboard'}">
             <div class="page-title-row">
-                <h1>Dashboard</h1>
-                <p>Hello <span th:text="${currentUser.displayName}">User2</span>, welcome to Paperless-ngx</p>
-                <div class="wordmark"><span class="leaf-mark">◒</span> Paperless<small>ngx</small></div>
+                <h1>工作台</h1>
+                <p><span th:text="${currentUser.displayName}">用户</span>，欢迎使用本地文档管理系统</p>
+                <div class="wordmark"><span class="leaf-mark">◒</span> 文档管理</div>
             </div>
 
             <div class="dashboard-grid">
                 <div class="stack">
                     <section class="panel">
                         <div class="panel-title">
-                            <h2>Inbox</h2>
-                            <a href="/documents">Show all</a>
+                            <h2>收件箱</h2>
+                            <a href="/documents">查看全部</a>
                         </div>
                         <table class="data-table">
                             <thead>
                             <tr>
-                                <th>Created</th>
-                                <th>Title</th>
-                                <th>Tags</th>
-                                <th>Correspondent</th>
+                                <th>创建时间</th>
+                                <th>标题</th>
+                                <th>标签</th>
+                                <th>上传人</th>
                             </tr>
                             </thead>
                             <tbody>
                             <tr th:each="doc, stat : ${documents}" th:if="${stat.index < 5}">
                                 <td th:text="${doc.created}">Aug 9, 2023</td>
-                                <td th:text="${doc.title}">Title</td>
+                                <td th:text="${doc.title}">文档标题</td>
                                 <td><span th:each="tag : ${doc.tags}" class="tag" th:style="'background:' + ${tag.color}" th:text="${tag.name}">Inbox</span></td>
                                 <td th:text="${doc.correspondent}">Correspondent</td>
                             </tr>
@@ -101,22 +100,22 @@
 
                     <section class="panel">
                         <div class="panel-title">
-                            <h2>Recently Added</h2>
-                            <a href="/documents">Show all</a>
+                            <h2>最近添加</h2>
+                            <a href="/documents">查看全部</a>
                         </div>
                         <table class="data-table">
                             <thead>
                             <tr>
-                                <th>Created</th>
-                                <th>Title</th>
-                                <th>Tags</th>
-                                <th>Correspondent</th>
+                                <th>创建时间</th>
+                                <th>标题</th>
+                                <th>标签</th>
+                                <th>上传人</th>
                             </tr>
                             </thead>
                             <tbody>
                             <tr th:each="doc : ${documents}">
                                 <td th:text="${doc.created}">Aug 9, 2023</td>
-                                <td th:text="${doc.title}">Title</td>
+                                <td th:text="${doc.title}">文档标题</td>
                                 <td><span th:each="tag : ${doc.tags}" class="tag" th:style="'background:' + ${tag.color}" th:text="${tag.name}">Inbox</span></td>
                                 <td th:text="${doc.correspondent}">Correspondent</td>
                             </tr>
@@ -127,19 +126,19 @@
 
                 <aside class="stack">
                     <section class="panel compact-panel">
-                        <div class="panel-title"><h2>Statistics</h2></div>
+                        <div class="panel-title"><h2>统计信息</h2></div>
                         <ul class="stat-list">
-                            <li><span>Documents in inbox:</span><strong th:text="${inboxTotal}">5</strong></li>
-                            <li><span>Total documents:</span><strong th:text="${documentTotal}">64</strong></li>
-                            <li><span>Storage used:</span><strong th:text="${storageTotal}">0 B</strong></li>
-                            <li><span>Tags:</span><strong th:text="${tagTotal}">28</strong></li>
-                            <li><span>Document Types:</span><strong th:text="${categoryTotal}">5</strong></li>
+                            <li><span>收件箱文档：</span><strong th:text="${inboxTotal}">5</strong></li>
+                            <li><span>文档总数：</span><strong th:text="${documentTotal}">64</strong></li>
+                            <li><span>已用存储：</span><strong th:text="${storageTotal}">0 B</strong></li>
+                            <li><span>标签数量：</span><strong th:text="${tagTotal}">28</strong></li>
+                            <li><span>分类数量：</span><strong th:text="${categoryTotal}">5</strong></li>
                         </ul>
                     </section>
                     <section class="panel upload-card">
-                        <div class="panel-title"><h2>Upload new documents</h2></div>
-                        <p>Drop documents anywhere or</p>
-                        <a class="outline-button" href="/documents/upload">Browse files</a>
+                        <div class="panel-title"><h2>上传新文档</h2></div>
+                        <p>选择本地文件并填写文档信息</p>
+                        <a class="outline-button" href="/documents/upload">浏览文件</a>
                     </section>
                 </aside>
             </div>
@@ -147,39 +146,39 @@
 
         <section th:if="${activePage == 'documents'}">
             <div class="page-title-row">
-                <h1>Documents</h1>
+                <h1>文档管理</h1>
                 <div class="view-actions">
-                    <a class="primary-button" href="/documents/upload">Upload</a>
-                    <button>Select ▾</button>
+                    <a class="primary-button" href="/documents/upload">上传</a>
+                    <button>选择 ▾</button>
                     <button>☷</button>
                     <button>▦</button>
-                    <button>Sort ▾</button>
-                    <button>Views ▾</button>
+                    <button>排序 ▾</button>
+                    <button>视图 ▾</button>
                 </div>
             </div>
             <form class="filter-bar" method="get" action="/documents">
-                <button type="button">Title & content ▾</button>
+                <button type="button">标题与描述 ▾</button>
                 <input type="search" name="keyword" th:value="${keyword}" placeholder="文档标题、原始文件名、描述">
                 <select name="tagId">
-                    <option value="">◆ Tags</option>
+                    <option value="">◆ 标签</option>
                     <option th:each="tag : ${tags}" th:value="${tag.id}" th:text="${tag.name}" th:selected="${selectedTagId != null && selectedTagId == tag.id}">Tag</option>
                 </select>
                 <select name="categoryId">
-                    <option value="">▣ Document type</option>
+                    <option value="">▣ 分类</option>
                     <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.name}" th:selected="${selectedCategoryId != null && selectedCategoryId == category.id}">Category</option>
                 </select>
                 <select name="size">
-                    <option value="5" th:selected="${pageSize == 5}">5 / page</option>
-                    <option value="10" th:selected="${pageSize == 10}">10 / page</option>
-                    <option value="20" th:selected="${pageSize == 20}">20 / page</option>
-                    <option value="50" th:selected="${pageSize == 50}">50 / page</option>
+                    <option value="5" th:selected="${pageSize == 5}">每页 5 条</option>
+                    <option value="10" th:selected="${pageSize == 10}">每页 10 条</option>
+                    <option value="20" th:selected="${pageSize == 20}">每页 20 条</option>
+                    <option value="50" th:selected="${pageSize == 50}">每页 50 条</option>
                 </select>
-                <button type="submit">Search</button>
-                <a class="outline-button muted-button" href="/documents">× Reset filters</a>
+                <button type="submit">搜索</button>
+                <a class="outline-button muted-button" href="/documents">× 重置筛选</a>
             </form>
             <div class="result-meta">
-                <p class="result-count"><span th:text="${resultTotal}">0</span> documents</p>
-                <p class="page-indicator">Page <span th:text="${page}">1</span> of <span th:text="${totalPages}">1</span></p>
+                <p class="result-count">共 <span th:text="${resultTotal}">0</span> 个文档</p>
+                <p class="page-indicator">第 <span th:text="${page}">1</span> / <span th:text="${totalPages}">1</span> 页</p>
             </div>
             <section class="panel table-panel">
                 <table class="data-table documents-table">
@@ -187,13 +186,13 @@
                     <tr>
                         <th></th>
                         <th>ASN</th>
-                        <th>Correspondent</th>
-                        <th>Title</th>
-                        <th>Owner</th>
-                        <th>Notes</th>
-                        <th>Document type</th>
-                        <th>Created ↑</th>
-                        <th>Added</th>
+                        <th>上传人</th>
+                        <th>标题</th>
+                        <th>所有者</th>
+                        <th>备注</th>
+                        <th>分类</th>
+                        <th>创建时间 ↑</th>
+                        <th>更新时间</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -202,7 +201,7 @@
                         <td th:text="${doc.asn == 0 ? '' : doc.asn}">1999</td>
                         <td th:text="${doc.correspondent}">Correspondent</td>
                         <td>
-                            <a th:href="@{/documents/{id}(id=${doc.id})}" th:text="${doc.title}">Title</a>
+                            <a th:href="@{/documents/{id}(id=${doc.id})}" th:text="${doc.title}">文档标题</a>
                             <span th:each="tag : ${doc.tags}" class="tag" th:style="'background:' + ${tag.color}" th:text="${tag.name}">Inbox</span>
                         </td>
                         <td th:text="${doc.owner}">User2</td>
@@ -217,126 +216,126 @@
             <nav class="pagination" th:if="${totalPages > 1}">
                 <a class="outline-button"
                    th:classappend="${!hasPrevious} ? ' disabled'"
-                   th:href="@{/documents(keyword=${keyword}, categoryId=${selectedCategoryId}, tagId=${selectedTagId}, size=${pageSize}, page=${previousPage})}">Previous</a>
+                   th:href="@{/documents(keyword=${keyword}, categoryId=${selectedCategoryId}, tagId=${selectedTagId}, size=${pageSize}, page=${previousPage})}">上一页</a>
                 <span><strong th:text="${page}">1</strong> / <span th:text="${totalPages}">1</span></span>
                 <a class="outline-button"
                    th:classappend="${!hasNext} ? ' disabled'"
-                   th:href="@{/documents(keyword=${keyword}, categoryId=${selectedCategoryId}, tagId=${selectedTagId}, size=${pageSize}, page=${nextPage})}">Next</a>
+                   th:href="@{/documents(keyword=${keyword}, categoryId=${selectedCategoryId}, tagId=${selectedTagId}, size=${pageSize}, page=${nextPage})}">下一页</a>
             </nav>
         </section>
 
         <section th:if="${activePage == 'upload'}">
-            <div class="page-title-row"><h1>Upload new documents</h1></div>
+            <div class="page-title-row"><h1>上传新文档</h1></div>
             <section class="panel form-panel">
                 <div class="drop-zone">
-                    <strong>Choose a document file</strong>
-                    <span>PDF, Word, Excel, Image, TXT</span>
+                    <strong>选择一个文档文件</strong>
+                    <span>支持 PDF、Word、Excel、图片、TXT</span>
                     <span>阶段 6 已接入真实文件上传，文件会保存到本地 uploads 目录。</span>
                     <span>阶段 5 先保存文档元数据，真实文件上传将在阶段 6 接入。</span>
                 </div>
                 <form class="form-grid" method="post" action="/documents" enctype="multipart/form-data">
-                    <label>Document title<input name="title" required placeholder="输入文档标题"></label>
-                    <label>Document file<input type="file" name="file" required accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.txt,.csv"></label>
-                    <label>Document type
+                    <label>文档标题<input name="title" required placeholder="输入文档标题"></label>
+                    <label>文档文件<input type="file" name="file" required accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.txt,.csv"></label>
+                    <label>文档分类
                         <select name="categoryId">
                             <option value="">未分类</option>
                             <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.name}">课程资料</option>
                         </select>
                     </label>
-                    <label class="wide-field">Tags
+                    <label class="wide-field">标签
                         <select name="tagIds" multiple>
                             <option th:each="tag : ${tags}" th:value="${tag.id}" th:text="${tag.name}">重要</option>
                         </select>
                     </label>
-                    <label class="wide-field">Description<textarea name="description" placeholder="文档说明"></textarea></label>
-                    <button class="primary-button" type="submit">Upload</button>
+                    <label class="wide-field">说明<textarea name="description" placeholder="文档说明"></textarea></label>
+                    <button class="primary-button" type="submit">上传</button>
                 </form>
             </section>
         </section>
 
         <section th:if="${activePage == 'document-detail' || activePage == 'document-edit'}">
             <div class="page-title-row">
-                <h1 th:text="${activePage == 'document-edit' ? 'Edit document' : 'Document detail'}">Document detail</h1>
+                <h1 th:text="${activePage == 'document-edit' ? '编辑文档' : '文档详情'}">文档详情</h1>
                 <div class="view-actions">
-                    <a class="outline-button" href="/documents">Back</a>
-                    <a class="outline-button" th:if="${activePage == 'document-detail'}" th:href="@{/documents/{id}/download(id=${selectedDocument.id})}">Download</a>
-                    <a class="outline-button" th:if="${activePage == 'document-detail'}" th:href="@{/documents/{id}/edit(id=${selectedDocument.id})}">Edit</a>
+                    <a class="outline-button" href="/documents">返回</a>
+                    <a class="outline-button" th:if="${activePage == 'document-detail'}" th:href="@{/documents/{id}/download(id=${selectedDocument.id})}">下载</a>
+                    <a class="outline-button" th:if="${activePage == 'document-detail'}" th:href="@{/documents/{id}/edit(id=${selectedDocument.id})}">编辑</a>
                     <form th:if="${activePage == 'document-detail'}" method="post" th:action="@{/documents/{id}/delete(id=${selectedDocument.id})}">
-                        <button type="submit">Delete</button>
+                        <button type="submit">删除</button>
                     </form>
                 </div>
             </div>
             <section class="detail-layout">
                 <div class="document-preview">
                     <span th:text="${selectedDocument.fileType}">PDF</span>
-                    <strong th:text="${selectedDocument.title}">Document</strong>
-                    <p th:text="${selectedDocument.originalFilename}">Preview placeholder</p>
+                    <strong th:text="${selectedDocument.title}">文档</strong>
+                    <p th:text="${selectedDocument.originalFilename}">预览占位</p>
                 </div>
                 <form th:if="${activePage == 'document-edit'}" class="panel form-panel" method="post" th:action="@{/documents/{id}/update(id=${selectedDocument.id})}">
-                    <label>Title<input name="title" required th:value="${selectedDocument.title}"></label>
-                    <label>Original filename<input name="originalFilename" required th:value="${selectedDocument.originalFilename}"></label>
-                    <label>File type<input name="fileType" required th:value="${selectedDocument.fileType}"></label>
-                    <label>Document type
+                    <label>标题<input name="title" required th:value="${selectedDocument.title}"></label>
+                    <label>原始文件名<input name="originalFilename" required th:value="${selectedDocument.originalFilename}"></label>
+                    <label>文件类型<input name="fileType" required th:value="${selectedDocument.fileType}"></label>
+                    <label>文档分类
                         <select name="categoryId">
                             <option value="">未分类</option>
                             <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.name}" th:selected="${selectedDocument.categoryId != null && selectedDocument.categoryId == category.id}">课程资料</option>
                         </select>
                     </label>
-                    <label>Tags
+                    <label>标签
                         <select name="tagIds" multiple>
                             <option th:each="tag : ${tags}" th:value="${tag.id}" th:text="${tag.name}" th:selected="${selectedDocument.tagIds.contains(tag.id)}">重要</option>
                         </select>
                     </label>
-                    <label>Description<textarea name="description" th:text="${selectedDocument.description}">文档说明</textarea></label>
-                    <button class="primary-button" type="submit">Save</button>
+                    <label>说明<textarea name="description" th:text="${selectedDocument.description}">文档说明</textarea></label>
+                    <button class="primary-button" type="submit">保存</button>
                 </form>
                 <div th:if="${activePage == 'document-detail'}" class="panel form-panel">
-                    <label>Title<input readonly th:value="${selectedDocument.title}"></label>
-                    <label>Original filename<input readonly th:value="${selectedDocument.originalFilename}"></label>
-                    <label>File type<input readonly th:value="${selectedDocument.fileType}"></label>
-                    <label>File size<input readonly th:value="${selectedDocument.fileSize == null ? '0 bytes' : selectedDocument.fileSize + ' bytes'}"></label>
-                    <label>Document type<input readonly th:value="${selectedDocument.documentType}"></label>
-                    <label>Tags<input readonly th:value="${#strings.listJoin(selectedDocument.tags.![name], ', ')}"></label>
-                    <label>Description<textarea readonly th:text="${selectedDocument.description}">文档说明</textarea></label>
+                    <label>标题<input readonly th:value="${selectedDocument.title}"></label>
+                    <label>原始文件名<input readonly th:value="${selectedDocument.originalFilename}"></label>
+                    <label>文件类型<input readonly th:value="${selectedDocument.fileType}"></label>
+                    <label>文件大小<input readonly th:value="${selectedDocument.fileSize == null ? '0 字节' : selectedDocument.fileSize + ' 字节'}"></label>
+                    <label>文档分类<input readonly th:value="${selectedDocument.documentType}"></label>
+                    <label>标签<input readonly th:value="${#strings.listJoin(selectedDocument.tags.![name], ', ')}"></label>
+                    <label>说明<textarea readonly th:text="${selectedDocument.description}">文档说明</textarea></label>
                 </div>
             </section>
         </section>
 
         <section th:if="${activePage == 'categories' || activePage == 'tags'}">
             <div class="page-title-row">
-                <h1 th:text="${activePage == 'categories' ? 'Document Types' : 'Tags'}">Manage</h1>
+                <h1 th:text="${activePage == 'categories' ? '分类管理' : '标签管理'}">管理</h1>
             </div>
             <section class="panel form-panel manage-form-panel">
                 <div class="panel-title">
-                    <h2 th:text="${editItem == null ? (activePage == 'categories' ? 'Create document type' : 'Create tag') : (activePage == 'categories' ? 'Edit document type' : 'Edit tag')}">Create</h2>
-                    <a th:if="${editItem != null}" class="outline-button" th:href="${activePage == 'categories' ? '/categories' : '/tags'}">Cancel edit</a>
+                    <h2 th:text="${editItem == null ? (activePage == 'categories' ? '新建分类' : '新建标签') : (activePage == 'categories' ? '编辑分类' : '编辑标签')}">新建</h2>
+                    <a th:if="${editItem != null}" class="outline-button" th:href="${activePage == 'categories' ? '/categories' : '/tags'}">取消编辑</a>
                 </div>
                 <form class="inline-manage-form"
                       method="post"
                       th:action="${editItem == null ? (activePage == 'categories' ? '/categories' : '/tags') : (activePage == 'categories' ? '/categories/' + editItem.id + '/update' : '/tags/' + editItem.id + '/update')}">
                     <label>
-                        Name
+                        名称
                         <input name="name" required th:value="${editItem == null ? '' : editItem.name}" th:placeholder="${activePage == 'categories' ? '例如：课程资料' : '例如：重要'}">
                     </label>
                     <label th:if="${activePage == 'categories'}">
-                        Description
+                        描述
                         <input name="description" th:value="${editItem == null ? '' : editItem.description}" placeholder="分类说明">
                     </label>
                     <label th:if="${activePage == 'tags'}">
-                        Color
+                        颜色
                         <input type="color" name="color" th:value="${editItem == null ? '#62c7bd' : editItem.description}">
                     </label>
-                    <button class="primary-button" type="submit" th:text="${editItem == null ? 'Create' : 'Save'}">Create</button>
+                    <button class="primary-button" type="submit" th:text="${editItem == null ? '创建' : '保存'}">创建</button>
                 </form>
             </section>
             <section class="panel table-panel">
                 <table class="data-table">
                     <thead>
                     <tr>
-                        <th>Name</th>
-                        <th>Description / Color</th>
-                        <th>Documents</th>
-                        <th>Actions</th>
+                        <th>名称</th>
+                        <th>描述 / 颜色</th>
+                        <th>文档数</th>
+                        <th>操作</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -344,7 +343,7 @@
                         <td th:text="${item.name}">Name</td>
                         <td>
                             <span th:if="${activePage == 'tags'}" class="color-dot" th:style="'background:' + ${item.description}"></span>
-                            <span th:class="${activePage == 'tags' ? 'tag' : ''}" th:text="${item.description}">Description</span>
+                            <span th:class="${activePage == 'tags' ? 'tag' : ''}" th:text="${item.description}">描述</span>
                         </td>
                         <td th:text="${item.count}">0</td>
                         <td>
@@ -361,32 +360,139 @@
             </section>
         </section>
 
-        <section th:if="${activePage == 'users' || activePage == 'logs'}">
+        <section th:if="${activePage == 'profile'}">
             <div class="page-title-row">
-                <h1 th:text="${activePage == 'users' ? 'Users & Groups' : 'Logs'}">Admin</h1>
-                <button class="primary-button" th:text="${activePage == 'users' ? 'Create user' : 'Export'}">Action</button>
+                <h1>个人中心</h1>
+                <p>维护个人资料、头像和登录密码</p>
+            </div>
+            <div class="profile-grid">
+                <section class="panel form-panel">
+                    <div class="profile-head">
+                        <img th:src="${profileUser.avatarUrl == null || profileUser.avatarUrl.isBlank() ? '/images/default-avatar.svg' : profileUser.avatarUrl}" alt="头像">
+                        <div>
+                            <strong th:text="${profileUser.nickname}">昵称</strong>
+                            <span th:text="${profileUser.username}">username</span>
+                        </div>
+                    </div>
+                    <form class="form-grid single-column-form" method="post" action="/profile">
+                        <label>昵称<input name="nickname" required th:value="${profileUser.nickname}"></label>
+                        <label>头像地址<input name="avatarUrl" th:value="${profileUser.avatarUrl}" placeholder="/images/default-avatar.svg 或图片 URL"></label>
+                        <label>邮箱<input type="email" name="email" th:value="${profileUser.email}" placeholder="example@mail.com"></label>
+                        <label>手机号<input name="phone" th:value="${profileUser.phone}" placeholder="可选"></label>
+                        <label>个人简介<textarea name="bio" th:text="${profileUser.bio}" placeholder="简单介绍自己"></textarea></label>
+                        <button class="primary-button" type="submit">保存资料</button>
+                    </form>
+                </section>
+                <section class="panel form-panel">
+                    <div class="panel-title"><h2>修改密码</h2></div>
+                    <form class="form-grid single-column-form" method="post" action="/profile/password">
+                        <label>原密码<input type="password" name="oldPassword" required></label>
+                        <label>新密码<input type="password" name="newPassword" required placeholder="至少 6 位"></label>
+                        <label>确认新密码<input type="password" name="confirmPassword" required></label>
+                        <button class="primary-button" type="submit">更新密码</button>
+                    </form>
+                </section>
+            </div>
+        </section>
+
+        <section th:if="${activePage == 'users'}">
+            <div class="page-title-row">
+                <h1>用户管理</h1>
+                <p>管理员可创建、编辑、禁用和删除普通用户账号</p>
+            </div>
+            <section class="panel form-panel manage-form-panel">
+                <div class="panel-title">
+                    <h2 th:text="${editUser == null ? '新建普通用户' : '编辑普通用户'}">新建普通用户</h2>
+                    <a th:if="${editUser != null}" class="outline-button" href="/users">取消编辑</a>
+                </div>
+                <form class="inline-manage-form user-manage-form"
+                      method="post"
+                      th:action="${editUser == null ? '/users' : '/users/' + editUser.id + '/update'}">
+                    <label th:if="${editUser == null}">账号<input name="username" required placeholder="登录账号"></label>
+                    <label>昵称<input name="nickname" required th:value="${editUser == null ? '' : editUser.nickname}" placeholder="显示昵称"></label>
+                    <label th:if="${editUser == null}">初始密码<input type="password" name="password" required placeholder="至少 6 位"></label>
+                    <label>邮箱<input type="email" name="email" th:value="${editUser == null ? '' : editUser.email}" placeholder="可选"></label>
+                    <label>手机号<input name="phone" th:value="${editUser == null ? '' : editUser.phone}" placeholder="可选"></label>
+                    <label th:if="${editUser != null}" class="wide-field">备注<textarea name="bio" th:text="${editUser.bio}" placeholder="用户备注"></textarea></label>
+                    <button class="primary-button" type="submit" th:text="${editUser == null ? '创建用户' : '保存用户'}">创建用户</button>
+                </form>
+                <form th:if="${editUser != null}" class="inline-manage-form password-reset-form"
+                      method="post" th:action="@{/users/{id}/password(id=${editUser.id})}">
+                    <label>重置密码<input type="password" name="password" required placeholder="至少 6 位"></label>
+                    <button class="primary-button" type="submit">重置密码</button>
+                </form>
+            </section>
+            <section class="panel table-panel">
+                <table class="data-table">
+                    <thead>
+                    <tr>
+                        <th>用户</th>
+                        <th>联系方式</th>
+                        <th>状态</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="user : ${users}">
+                        <td>
+                            <div class="user-cell">
+                                <img th:src="${user.avatarUrl == null || user.avatarUrl.isBlank() ? '/images/default-avatar.svg' : user.avatarUrl}" alt="头像">
+                                <div>
+                                    <strong th:text="${user.nickname}">昵称</strong>
+                                    <span th:text="${user.username}">username</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div th:text="${user.email == null || user.email.isBlank() ? '未填写邮箱' : user.email}">email</div>
+                            <small th:text="${user.phone == null || user.phone.isBlank() ? '未填写手机号' : user.phone}">phone</small>
+                        </td>
+                        <td><span class="status-pill" th:classappend="${user.enabled} ? ' enabled' : ' disabled'" th:text="${user.enabled ? '启用' : '禁用'}">启用</span></td>
+                        <td th:text="${user.createdAt}">2026-06-30</td>
+                        <td>
+                            <div class="row-actions">
+                                <a class="outline-button" th:href="@{/users(editId=${user.id})}">编辑</a>
+                                <form method="post" th:action="@{/users/{id}/toggle(id=${user.id})}">
+                                    <button type="submit" th:text="${user.enabled ? '禁用' : '启用'}">禁用</button>
+                                </form>
+                                <form method="post" th:action="@{/users/{id}/delete(id=${user.id})}">
+                                    <button type="submit">删除</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </section>
+        </section>
+
+        <section th:if="${activePage == 'logs'}">
+            <div class="page-title-row">
+                <h1>操作日志</h1>
+                <button class="primary-button">导出</button>
             </div>
             <section class="panel table-panel">
                 <table class="data-table">
                     <thead>
                     <tr>
-                        <th th:text="${activePage == 'users' ? 'Username' : 'Time'}">Username</th>
-                        <th th:text="${activePage == 'users' ? 'Role' : 'User'}">Role</th>
-                        <th th:text="${activePage == 'users' ? 'Status' : 'Action'}">Status</th>
-                        <th th:text="${activePage == 'users' ? 'Last login' : 'Result'}">Last login</th>
+                        <th>时间</th>
+                        <th>用户</th>
+                        <th>操作</th>
+                        <th>结果</th>
                     </tr>
                     </thead>
                     <tbody>
                     <tr>
-                        <td th:text="${activePage == 'users' ? 'admin' : '2026-06-26 15:20'}">admin</td>
-                        <td th:text="${activePage == 'users' ? '管理员' : 'admin'}">管理员</td>
-                        <td th:text="${activePage == 'users' ? '启用' : '登录'}">启用</td>
+                        <td>2026-06-26 15:20</td>
+                        <td>admin</td>
+                        <td>登录</td>
                         <td>成功</td>
                     </tr>
                     <tr>
-                        <td th:text="${activePage == 'users' ? 'user2' : '2026-06-26 15:28'}">user2</td>
-                        <td th:text="${activePage == 'users' ? '普通用户' : 'user2'}">普通用户</td>
-                        <td th:text="${activePage == 'users' ? '启用' : '上传文档'}">启用</td>
+                        <td>2026-06-26 15:28</td>
+                        <td>user</td>
+                        <td>上传文档</td>
                         <td>成功</td>
                     </tr>
                     </tbody>

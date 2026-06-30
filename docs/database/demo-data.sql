@@ -1,11 +1,16 @@
 USE paperless_ngx_project;
 
-INSERT INTO sys_user (id, username, password_hash, nickname, role, status)
+INSERT INTO sys_user (id, username, password_hash, nickname, avatar_url, email, phone, bio, role, status)
 VALUES
-  (1, 'admin', 'TEMP_HASH_admin123_replace_later', '管理员', 'ADMIN', 1),
-  (2, 'user', 'TEMP_HASH_user123_replace_later', '普通用户', 'USER', 1)
+  (1, 'admin', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', '管理员', '/images/default-avatar.svg', 'admin@example.com', '13800000001', '系统管理员账号', 'ADMIN', 1),
+  (2, 'user', 'e606e38b0d8c19b24cf0ee3808183162ea7cd63ff7912dbb22b5e803286b4446', '普通用户', '/images/default-avatar.svg', 'user@example.com', '13800000002', '演示普通用户账号', 'USER', 1)
 ON DUPLICATE KEY UPDATE
   nickname = VALUES(nickname),
+  avatar_url = VALUES(avatar_url),
+  email = VALUES(email),
+  phone = VALUES(phone),
+  bio = VALUES(bio),
+  password_hash = VALUES(password_hash),
   role = VALUES(role),
   status = VALUES(status);
 

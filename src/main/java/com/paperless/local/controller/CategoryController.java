@@ -36,7 +36,7 @@ public class CategoryController {
 
     @GetMapping("/categories")
     public String categories(@RequestParam(name = "editId", required = false) Long editId, Model model) {
-        homeController.prepareManagePage(model, "categories", "Document Types", editId);
+        homeController.prepareManagePage(model, "categories", "分类管理", editId);
         return "app";
     }
 

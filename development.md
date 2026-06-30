@@ -1082,4 +1082,51 @@ currentUser.isAdmin() || currentUserId == document.uploadUserId
 
 ### 本阶段验证
 
+## 阶段 8A：界面汉化与用户模块完善
+
+阶段 8A 的目标是让系统更适合课程答辩和中文用户演示，同时补齐用户账号的基础生命周期能力。
+
+### 技术实现
+
+- `sys_user` 表扩展 `avatar_url`、`email`、`phone`、`bio` 字段。
+- `User` 实体同步新增头像、邮箱、手机号和简介属性。
+- `LoginUser` 增加用户 ID 和头像地址，便于页面展示和权限相关操作定位当前用户。
+- `AuthService` 从内存账号改为查询数据库用户，新增密码哈希和密码校验方法。
+- 新密码使用 Hutool `DigestUtil.sha256Hex(...)` 保存。
+- 为旧演示数据保留 `TEMP_HASH_admin123_replace_later` 和 `TEMP_HASH_user123_replace_later` 兼容逻辑。
+- 新增 `UserController`，统一承载注册、个人中心和管理员用户管理。
+- `/register` 不经过登录拦截，注册用户默认角色为 `USER`。
+- `/profile` 和 `/profile/password` 仅允许登录用户维护自己的资料和密码。
+- `/users` 仍由拦截器限制为管理员访问，管理员只管理普通用户。
+- 删除普通用户前检查该用户是否已有文档，避免破坏文档表外键和上传人归属。
+
+### 页面实现
+
+- `login.html` 同时承载登录和注册两个模式。
+- `app.html` 主导航、工作台、文档管理、上传、详情、分类、标签、用户管理等区域改为中文。
+- 顶栏显示用户头像、昵称、角色和个人中心入口。
+- 新增个人中心页面区域，支持资料修改和密码修改。
+- 用户管理页面从静态占位改为真实普通用户列表。
+
+### 数据库升级
+
+新建数据库直接执行：
+
+```sql
+source docs/database/schema.sql;
+source docs/database/demo-data.sql;
+```
+
+已有旧库先执行：
+
+```sql
+source docs/database/upgrade-stage8-users.sql;
+source docs/database/demo-data.sql;
+```
+
+### 本阶段验证
+
+- `mvn package` 构建成功。
+- 后续本地浏览器测试重点包括注册、登录、个人资料修改、密码修改、管理员创建用户、禁用用户、重置密码和删除无文档用户。
+
 已执行 `mvn package`，构建成功。

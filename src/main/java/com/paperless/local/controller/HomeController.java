@@ -51,22 +51,16 @@ public class HomeController {
 
     @GetMapping({"/", "/dashboard"})
     public String dashboard(@RequestParam(name = "denied", required = false) String denied, HttpServletRequest request, Model model) {
-        prepareApp(model, "dashboard", "Dashboard", currentUser(request));
+        prepareApp(model, "dashboard", "工作台", currentUser(request));
         if (denied != null) {
             model.addAttribute("warning", "当前账号无权访问该管理页面");
         }
         return "app";
     }
 
-    @GetMapping("/users")
-    public String users(Model model) {
-        prepareApp(model, "users", "Users & Groups");
-        return "app";
-    }
-
     @GetMapping("/logs")
     public String logs(Model model) {
-        prepareApp(model, "logs", "Logs");
+        prepareApp(model, "logs", "操作日志");
         return "app";
     }
 
