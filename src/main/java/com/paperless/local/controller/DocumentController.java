@@ -70,13 +70,14 @@ public class DocumentController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) Long tagId,
+            @RequestParam(defaultValue = "all") String view,
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer size,
             HttpServletRequest request,
             Model model
     ) {
         homeController.prepareApp(model, "documents", "文档管理", currentUser(request));
-        List<HomeController.DocumentView> filtered = filterDocuments(keyword, categoryId, tagId, currentUser(request));
+        List<HomeController.DocumentView> filtered = filterDocuments(keyword, categoryId, tagId, view, currentUser(request));
         int pageSize = normalizePageSize(size);
         int totalPages = Math.max(1, (int) Math.ceil(filtered.size() / (double) pageSize));
         int currentPage = Math.min(Math.max(1, page), totalPages);
@@ -90,6 +91,8 @@ public class DocumentController {
         model.addAttribute("keyword", keyword);
         model.addAttribute("selectedCategoryId", categoryId);
         model.addAttribute("selectedTagId", tagId);
+        model.addAttribute("selectedView", normalizeView(view));
+        model.addAttribute("documentPageTitle", "recent".equals(normalizeView(view)) ? "最近添加" : "文档管理");
         model.addAttribute("page", currentPage);
         model.addAttribute("pageSize", pageSize);
         model.addAttribute("totalPages", totalPages);
@@ -254,17 +257,20 @@ public class DocumentController {
         return "redirect:/documents";
     }
 
-    private List<HomeController.DocumentView> filterDocuments(String keyword, Long categoryId, Long tagId, LoginUser currentUser) {
+    private List<HomeController.DocumentView> filterDocuments(String keyword, Long categoryId, Long tagId, String view, LoginUser currentUser) {
         List<Long> tagDocumentIds = tagId == null
                 ? Collections.emptyList()
                 : tagRelService.list(Wrappers.<DocumentTagRel>lambdaQuery().eq(DocumentTagRel::getTagId, tagId))
                 .stream()
                 .map(DocumentTagRel::getDocumentId)
                 .toList();
+        LocalDateTime recentCutoff = LocalDateTime.now().minusDays(7);
 
         return documentService.list(Wrappers.<Document>lambdaQuery().orderByDesc(Document::getUploadedAt).orderByDesc(Document::getId))
                 .stream()
                 .filter(document -> canAccess(document, currentUser))
+                .filter(document -> !"recent".equals(normalizeView(view))
+                        || (document.getUploadedAt() != null && !document.getUploadedAt().isBefore(recentCutoff)))
                 .filter(document -> categoryId == null || categoryId.equals(document.getCategoryId()))
                 .filter(document -> tagId == null || tagDocumentIds.contains(document.getId()))
                 .filter(document -> matchesKeyword(document, keyword))
@@ -334,6 +340,10 @@ public class DocumentController {
             return 10;
         }
         return Math.min(size, 50);
+    }
+
+    private String normalizeView(String view) {
+        return "recent".equals(view) ? "recent" : "all";
     }
 
     private boolean isBlank(String value) {

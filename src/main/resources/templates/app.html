@@ -33,15 +33,14 @@
         </nav>
         <h3>快捷视图</h3>
         <nav>
-            <a href="/documents">▽ 全部文档</a>
-            <a href="/documents">▽ 最近添加</a>
+            <a th:classappend="${activePage == 'documents' && selectedView == 'all'} ? ' active'" href="/documents?view=all">▽ 全部文档</a>
+            <a th:classappend="${activePage == 'documents' && selectedView == 'recent'} ? ' active'" href="/documents?view=recent">▽ 最近添加</a>
         </nav>
         <h3>资料维护</h3>
         <nav>
-            <a href="/documents">♙ 上传人</a>
+            <a th:classappend="${activePage == 'uploaders'} ? ' active'" href="/uploaders">♙ 上传人</a>
             <a th:if="${currentUser.admin}" th:classappend="${activePage == 'tags'} ? ' active'" href="/tags">◇ 标签管理</a>
             <a th:if="${currentUser.admin}" th:classappend="${activePage == 'categories'} ? ' active'" href="/categories"># 分类管理</a>
-            <a href="/documents">▱ 存储路径</a>
             <a href="/documents/upload">▤ 上传文档</a>
         </nav>
         <h3>系统管理</h3>
@@ -146,7 +145,7 @@
 
         <section th:if="${activePage == 'documents'}">
             <div class="page-title-row">
-                <h1>文档管理</h1>
+                <h1 th:text="${documentPageTitle == null ? '文档管理' : documentPageTitle}">文档管理</h1>
                 <div class="view-actions">
                     <a class="primary-button" href="/documents/upload">上传</a>
                     <button>选择 ▾</button>
@@ -157,6 +156,7 @@
                 </div>
             </div>
             <form class="filter-bar" method="get" action="/documents">
+                <input type="hidden" name="view" th:value="${selectedView}">
                 <button type="button">标题与描述 ▾</button>
                 <input type="search" name="keyword" th:value="${keyword}" placeholder="文档标题、原始文件名、描述">
                 <select name="tagId">
@@ -216,12 +216,77 @@
             <nav class="pagination" th:if="${totalPages > 1}">
                 <a class="outline-button"
                    th:classappend="${!hasPrevious} ? ' disabled'"
-                   th:href="@{/documents(keyword=${keyword}, categoryId=${selectedCategoryId}, tagId=${selectedTagId}, size=${pageSize}, page=${previousPage})}">上一页</a>
+                   th:href="@{/documents(view=${selectedView}, keyword=${keyword}, categoryId=${selectedCategoryId}, tagId=${selectedTagId}, size=${pageSize}, page=${previousPage})}">上一页</a>
                 <span><strong th:text="${page}">1</strong> / <span th:text="${totalPages}">1</span></span>
                 <a class="outline-button"
                    th:classappend="${!hasNext} ? ' disabled'"
-                   th:href="@{/documents(keyword=${keyword}, categoryId=${selectedCategoryId}, tagId=${selectedTagId}, size=${pageSize}, page=${nextPage})}">下一页</a>
+                   th:href="@{/documents(view=${selectedView}, keyword=${keyword}, categoryId=${selectedCategoryId}, tagId=${selectedTagId}, size=${pageSize}, page=${nextPage})}">下一页</a>
             </nav>
+        </section>
+
+        <section th:if="${activePage == 'uploaders' && selectedUploader == null}">
+            <div class="page-title-row">
+                <h1>上传人</h1>
+                <p>共 <span th:text="${uploaderDocumentTotal}">0</span> 个可查看文档</p>
+            </div>
+            <section class="maintenance-grid">
+                <a class="panel uploader-card" th:each="uploader : ${uploaders}" th:href="@{/uploaders/{id}/documents(id=${uploader.userId})}">
+                    <div class="user-cell">
+                        <img th:src="${uploader.avatarUrl == null || uploader.avatarUrl.isBlank() ? '/images/default-avatar.svg' : uploader.avatarUrl}" alt="头像">
+                        <div>
+                            <strong th:text="${uploader.nickname}">上传人</strong>
+                            <span th:text="${uploader.username}">username</span>
+                        </div>
+                    </div>
+                    <ul class="metric-list">
+                        <li><span>文档数量</span><strong th:text="${uploader.documentCount}">0</strong></li>
+                        <li><span>占用空间</span><strong th:text="${uploader.totalSize}">0 B</strong></li>
+                        <li><span>最近上传</span><strong th:text="${uploader.latestUploadedAt}">-</strong></li>
+                    </ul>
+                </a>
+            </section>
+        </section>
+
+        <section th:if="${activePage == 'uploaders' && selectedUploader != null}">
+            <div class="page-title-row">
+                <h1 th:text="${selectedUploaderName}">上传人</h1>
+                <p>该用户共上传 <span th:text="${selectedUploader.documentCount}">0</span> 个文档</p>
+                <div class="view-actions">
+                    <a class="outline-button" href="/uploaders">返回上传人</a>
+                </div>
+            </div>
+            <section class="panel table-panel">
+                <table class="data-table documents-table">
+                    <thead>
+                    <tr>
+                        <th>ASN</th>
+                        <th>标题</th>
+                        <th>标签</th>
+                        <th>分类</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="doc : ${uploaderDocuments}">
+                        <td th:text="${doc.asn}">1</td>
+                        <td><a th:href="@{/documents/{id}(id=${doc.id})}" th:text="${doc.title}">文档标题</a></td>
+                        <td><span th:each="tag : ${doc.tags}" class="tag" th:style="'background:' + ${tag.color}" th:text="${tag.name}">标签</span></td>
+                        <td th:text="${doc.documentType}">分类</td>
+                        <td th:text="${doc.created}">2026-06-30</td>
+                        <td>
+                            <div class="row-actions">
+                                <a class="outline-button" th:href="@{/documents/{id}(id=${doc.id})}">详情</a>
+                                <a class="outline-button" th:href="@{/documents/{id}/edit(id=${doc.id})}">编辑</a>
+                                <form method="post" th:action="@{/documents/{id}/delete(id=${doc.id})}">
+                                    <button type="submit">删除</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </section>
         </section>
 
         <section th:if="${activePage == 'upload'}">

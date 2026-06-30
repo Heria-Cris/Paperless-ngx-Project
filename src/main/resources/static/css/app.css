@@ -626,6 +626,49 @@ button,
     color: #842029;
 }
 
+.maintenance-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 18px;
+}
+
+.uploader-card {
+    display: grid;
+    gap: 18px;
+    padding: 18px;
+    color: var(--text);
+}
+
+.uploader-card:hover {
+    border-color: var(--green);
+    box-shadow: 0 6px 16px rgba(36, 87, 35, 0.14);
+}
+
+.metric-list {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.metric-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--muted);
+}
+
+.metric-list strong {
+    color: var(--text);
+}
+
+.form-note {
+    margin: 14px 0 0;
+    color: var(--muted);
+    line-height: 1.6;
+}
+
 .color-dot {
     display: inline-block;
     width: 14px;
